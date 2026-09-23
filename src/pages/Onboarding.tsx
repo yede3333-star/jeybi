@@ -6,6 +6,7 @@ import { listWallets, setOpeningBalances } from '../repo/wallets';
 import { setSettings } from '../repo/settings';
 import { IconBadge } from '../components/Icon';
 import { PinSetup } from './Security';
+import { markUnlocked } from '../components/Lock';
 import { applyUi } from '../hooks/settings';
 import { useSettings } from '../hooks/settings';
 import { parseAmount, currencyLabel, type Lang } from '../lib/money';
@@ -26,6 +27,7 @@ export default function Onboarding() {
   };
 
   const finish = async () => {
+    markUnlocked();
     await setSettings({ onboarded: true, firstRunAt: s.firstRunAt || Date.now() });
   };
 

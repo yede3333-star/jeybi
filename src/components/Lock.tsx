@@ -4,11 +4,16 @@ import { Delete, Fingerprint, Lock as LockIcon } from 'lucide-react';
 import { useSettings } from '../hooks/settings';
 import { verifyBiometric, verifyPin, biometricAvailable } from '../services/security';
 
+// Set when the user has just proven they know the PIN (e.g. created it during onboarding),
+// so the gate doesn't immediately ask for it again.
+let unlockedAt = 0;
+export const markUnlocked = () => { unlockedAt = Date.now(); };
+
 /** Keeps the app locked behind the PIN on launch and after the configured idle time. */
 export function LockGate({ children }: { children: ReactNode }) {
   const s = useSettings();
   const hasPin = !!s.pinHash;
-  const [locked, setLocked] = useState(hasPin);
+  const [locked, setLocked] = useState(hasPin && Date.now() - unlockedAt > 60_000);
   const lastActive = useRef(Date.now());
   const hiddenAt = useRef<number | null>(null);
 

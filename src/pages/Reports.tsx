@@ -155,7 +155,8 @@ export default function Reports() {
     let cancelled = false;
     (async () => {
       try {
-        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        // Let the off-screen print view mount; setTimeout also fires when the tab isn't painting.
+        await new Promise((r) => setTimeout(r, 120));
         const { captureElement, canvasToPdf, canvasToPngBlob } = await import('../services/pdf');
         const canvas = await captureElement(printRef.current!);
         if (cancelled) return;

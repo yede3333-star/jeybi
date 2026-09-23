@@ -25,7 +25,7 @@ export async function addDemoData(lang: 'ar' | 'fr' = 'ar', now = Date.now()): P
   const w = (key: string): Wallet => wallets.find((x) => x.sysKey === key) ?? wallets[0];
   const c = (key: string, kind: 'income' | 'expense'): Category | undefined =>
     cats.find((x) => x.sysKey === key) ?? cats.find((x) => x.kind === kind);
-  const cash = w('cash'), bankily = w('bankily'), bank = w('bank'), masrvi = w('masrvi');
+  const cash = w('cash'), bankily = w('bankily'), bank = w('bank');
   const r = rng(42);
   const between = (a: number, b: number, step = 50) => Math.round((a + r() * (b - a)) / step) * step * 100;
   const at = (day: Date, h: number, m = Math.floor(r() * 60)) => +day + h * 3600e3 + m * 60e3;
@@ -49,22 +49,22 @@ export async function addDemoData(lang: 'ar' | 'fr' = 'ar', now = Date.now()): P
     const dom = d.getDate(), dow = d.getDay();
     if (dom === 1) {
       inc(d, 9, 'salary', 45000_00, bank, L('راتب الشهر', 'Salaire du mois'));
-      transfer(d, 12, bank, bankily, 25000_00, 0, L('تحويل للمحفظة', 'Virement vers le portefeuille'));
-      exp(d, 13, 'rent', 12000_00, bank, L('إيجار الشقة', 'Loyer de l’appartement'));
-      exp(d, 14, 'education', 2000_00, bank, L('دروس خصوصية', 'Cours particuliers'));
+      transfer(d, 12, bank, bankily, 34000_00, 0, L('تحويل للمحفظة', 'Virement vers le portefeuille'));
+      exp(d, 13, 'rent', 9000_00, bank, L('إيجار الشقة', 'Loyer de l’appartement'));
+      exp(d, 14, 'education', 2000_00, bankily, L('دروس خصوصية', 'Cours particuliers'));
     }
-    if (dom === 5 || dom === 20) exp(d, 18, 'family', between(2500, 4500, 500), bankily, L('مصروف الأهل', 'Argent pour la famille'));
+    if (dom === 5 || dom === 20) exp(d, 18, 'family', between(2000, 3000, 500), bankily, L('مصروف الأهل', 'Argent pour la famille'));
     if (dom === 10) exp(d, 11, 'utilities', between(1500, 2800), bankily, L('فاتورة الكهرباء والماء', 'Facture eau et électricité'));
-    if (dom === 15 && r() < 0.7) inc(d, 16, 'commissions', between(3000, 9000, 500), masrvi, L('عمولة', 'Commission'));
+    if (dom === 15 && r() < 0.7) inc(d, 16, 'commissions', between(3000, 9000, 500), bankily, L('عمولة', 'Commission'));
     if (r() < 0.05) inc(d, 17, 'services', between(1000, 4000, 500), cash, L('خدمة', 'Service rendu'));
     if (dow === 1) transfer(d, 10, bankily, cash, 4000_00, 40_00, L('سحب نقدي', 'Retrait'));
     if (dom % 3 === 0) exp(d, 8, 'phone', 200_00, bankily, '', []);
-    if (r() < 0.7) exp(d, 19, c('groceries', 'expense') ? 'groceries' : 'food', between(200, 800), cash);
-    if (r() < 0.12) exp(d, 21, c('restaurants', 'expense') ? 'restaurants' : 'food', between(400, 1500), cash, L('عشاء', 'Dîner'));
+    if (r() < 0.6) exp(d, 19, c('groceries', 'expense') ? 'groceries' : 'food', between(150, 500), cash);
+    if (r() < 0.07) exp(d, 21, c('restaurants', 'expense') ? 'restaurants' : 'food', between(400, 1200), cash, L('عشاء', 'Dîner'));
     const taxis = r() < 0.6 ? (r() < 0.4 ? 2 : 1) : 0;
     for (let i = 0; i < taxis; i++) exp(d, 7 + i * 10, c('taxi', 'expense') ? 'taxi' : 'transport', between(100, 200), cash);
     if (dow === 5) exp(d, 13, 'charity', between(100, 500), cash, L('صدقة الجمعة', 'Aumône du vendredi'));
-    if (r() < 0.03) exp(d, 10, 'health', between(500, 3000), cash, L('صيدلية', 'Pharmacie'));
+    if (r() < 0.03) exp(d, 10, 'health', between(300, 1500), cash, L('صيدلية', 'Pharmacie'));
     if (r() < 0.02) exp(d, 17, 'clothes', between(1500, 5000, 500), bankily);
     // Monthly market trip, split between groceries and household items
     if (dom === 12) {

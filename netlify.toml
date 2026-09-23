@@ -1,0 +1,7 @@
+# Alternative to GitHub Pages. The relative base ("./") works as-is on Netlify.
+[build]
+  command = "npm test && npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "24"

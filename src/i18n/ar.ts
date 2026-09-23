@@ -64,14 +64,14 @@ const ar = {
   where: {
     title: 'أين ذهب مالي؟',
     intro: 'دخلك في {{period}}: {{income}}.',
-    went: 'ذهب منه',
-    part: '{{pct}} لـ{{name}}',
+    went: 'ذهب منه:',
+    part: '{{name}} {{pct}}',
     sep: '، ',
     left: 'وبقي لك {{amount}}.',
     overspent: 'وصرفت أكثر من دخلك بـ {{amount}}.',
     noIncome: 'لم يُسجَّل دخل في {{period}}، وصرفت {{expense}}:',
     nothing: 'لا توجد عمليات في {{period}}.',
-    others: 'أخرى', rest: 'المتبقي',
+    others: 'باقي التصنيفات', rest: 'المتبقي',
   },
   templates: {
     add: 'قالب جديد', edit: 'تعديل القالب', name: 'اسم القالب', namePlaceholder: 'مثلًا: رصيد هاتف',

@@ -63,7 +63,8 @@ function Fab() {
 
 function ScrollTop() {
   const { pathname } = useLocation();
-  useEffect(() => window.scrollTo(0, 0), [pathname]);
+  // Braces matter: newer Chrome returns a Promise from scrollTo, which React would treat as a cleanup.
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
   return null;
 }
 

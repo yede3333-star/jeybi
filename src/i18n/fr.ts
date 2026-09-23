@@ -74,7 +74,7 @@ const fr: Dict = {
     overspent: 'Vous avez dépensé {{amount}} de plus que vos revenus.',
     noIncome: 'Aucun revenu enregistré ({{period}}) ; vous avez dépensé {{expense}} :',
     nothing: 'Aucune opération ({{period}}).',
-    others: 'Autres', rest: 'Reste',
+    others: 'Autres catégories', rest: 'Reste',
   },
   templates: {
     add: 'Nouveau modèle', edit: 'Modifier le modèle', name: 'Nom du modèle', namePlaceholder: 'ex. : Crédit téléphone',
