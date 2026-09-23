@@ -1,8 +1,7 @@
 # تقدّم العمل — جيبي / Jeybi (المرحلة الأولى)
 
-آخر تحديث: 2026-09-23 — توقف مؤقت بطلب المستخدم.
+آخر تحديث: 2026-09-23 — الجلسة الثانية.
 
-> لم يُشغَّل أي بناء أو اختبار بعد. الكود المكتوب لم يمرّ على `tsc` حتى الآن.
 
 ---
 
@@ -11,7 +10,7 @@
 | القسم في jeybi-phase1.md | الملفات |
 |---|---|
 | §1 إعداد المشروع (config) | `package.json`، `tsconfig.json`، `vite.config.ts` (PWA + manifest + workbox)، `vitest.config.ts`، `index.html` (تطبيق اللغة/الثيم/الخط قبل أول رسم)، `.gitignore` |
-| §1 أيقونات PWA | `public/favicon.svg`، `scripts/make-icons.mjs` (يولّد PNG بدون مكتبات — **لم يُشغَّل بعد**: `npm run icons`) |
+| §1 أيقونات PWA | `public/favicon.svg`، `scripts/make-icons.mjs` (يولّد PNG بدون مكتبات: `npm run icons`) |
 | §2 الأرقام والعملة | `src/lib/money.ts` (أرقام لاتينية دائمًا، `ar-u-nu-latn`، أشهر موريتانية `ar-MR`، المبالغ ×100، عزل bidi للإشارة السالبة، لوحة الأرقام) |
 | §8 حدود الفترات | `src/lib/period.ts` (يوم/أسبوع/شهر/سنة/مخصص، بداية أسبوع قابلة للضبط، التنقل، أعمدة الرسم الزمني) |
 | نموذج البيانات | `src/data/types.ts`، `src/data/db.ts` (Dexie v1)، `src/data/defaults.ts` (المحافظ والتصنيفات الافتراضية مع تصنيفات فرعية) |
@@ -23,21 +22,23 @@
 | §8 التصدير (منطق) | `src/services/excel.ts` (ورقة ملخص + ورقة عمليات، RTL)، `src/services/pdf.ts` (تحويل DOM لصورة ثم PDF متعدد الصفحات مع قطع ذكي)، `src/services/share.ts` (Web Share مع بديل التحميل)، `src/services/image.ts` (ضغط صورة الوصل) |
 | React أساسيات | `src/i18n/index.ts`، `src/hooks/settings.tsx`، `src/hooks/fmt.ts`، `src/hooks/data.ts`، `src/index.css` (Tailwind v4، ألوان فاتح/داكن، أحجام خط)، `src/components/Icon.tsx`، `src/components/ui.tsx` (Sheet, PageHeader, Segmented, Toggle…)، `src/components/Toast.tsx` (إشعار مع زر تراجع) |
 
+## ✅ مُنجز أيضًا (الجلسة الثانية)
+
+- **الواجهة كاملة:** `src/main.tsx`، `src/App.tsx` (المزوّدات، HashRouter، التنقل السفلي، الزر العائم +)، `src/components/`: `TxEditor` (لوحة أرقام ← تصنيف ← حفظ فوري، المحفظة، التحويل مع الرسوم، التقسيم، الوسوم مع اقتراحات، الوصل، التاريخ)، `AmountPad`، `pickers`، `TagInput`، `TxRow`، `Lock` (قفل عند الفتح وبعد الخمول + البصمة)، `PeriodNav`، `WhereSummary`، `ReportPrint` (عرض للطباعة/الصورة).
+- **الصفحات:** `Onboarding`، `Home` (مع بانر النسخ الاحتياطي)، `Transactions` (بحث + فلاتر في الرابط + المجاميع)، `TxDetail` (السجل، تكرار، حفظ كقالب)، `Reports` (مقارنة، دائري + جدول مع الفرعيات، زمني، محافظ، أكبر 10، Excel/PDF/صورة)، `WhereMoney`، `Settings`، `Manage` (المحافظ/التصنيفات/القوالب)، `Trash`، `Security`، `Backup`.
+- **الترجمة:** `src/i18n/ar.ts` و`src/i18n/fr.ts` (الفرنسي مُنمَّط على العربي — أي مفتاح ناقص يُفشل `tsc`).
+- **الأيقونات** مولّدة في `public/icons/`.
+- ✔ `npx tsc --noEmit` بدون أخطاء، ✔ `vite build` ينجح (Service Worker يحفظ 26 ملفًا مسبقًا).
+
 ## 🟡 مُنجز جزئيًا
 
-- **§1 التبعيات:** كل التبعيات مثبّتة (vite 8، typescript 7، vitest 5، tailwindcss 4.3، vite-plugin-pwa 1.3، react-router 8). نبّه npm إلى أن سكربتات التثبيت لبعض الحزم لم تُفعَّل (`npm approve-scripts --allow-scripts-pending` للمراجعة) — تحقّق من ذلك إن فشل `vite` أو `vitest` في التشغيل. انتبه: TypeScript 7 إصدار رئيسي جديد؛ إن ظهرت مشاكل مع الأدوات فجرّب `typescript@5`.
-- **§2 الترجمة:** `src/i18n/index.ts` يستورد `./ar` و`./fr` — **الملفان `src/i18n/ar.ts` و`src/i18n/fr.ts` غير موجودين بعد.**
-- **§12 الاختبارات:** مجلد `src/tests/` فارغ؛ `vitest.config.ts` يشير إلى `src/tests/setup.ts` **غير الموجود** (يجب أن يحتوي `import 'fake-indexeddb/auto';`).
+- لا شيء.
 
 ## ⬜ لم يبدأ بعد
 
-- `src/main.tsx` و`src/App.tsx` (المزوّدات + `HashRouter` + المسارات).
-- مكونات: `BottomNav`، زر `+` العائم، `TxEditor` (لوحة أرقام → تصنيف → حفظ، تفاصيل: محفظة، تاريخ، ملاحظة، وسوم مع اقتراحات، صورة وصل، تقسيم)، `CategoryGrid`، `TagInput`، `TxRow`، `WalletCard`، `PeriodNav`، `LockScreen` + مزوّد القفل (مهلة الخمول، البصمة)، عرض تقرير مخصّص للطباعة (للـ PDF/الصورة).
-- الصفحات: الترحيب (لغة ← أرصدة افتتاحية ← PIN)، الرئيسية (§9)، العمليات مع البحث والفلاتر (§7)، تفاصيل العملية + السجل، التقارير (§8)، "أين ذهب مالي؟"، الإعدادات (§11) وفروعها: المحافظ، التصنيفات، القوالب، المحذوفات، الأمان، النسخ الاحتياطي/الاستيراد، بانر التذكير الأسبوعي.
-- ملفات الترجمة `ar.ts` و`fr.ts`.
-- الاختبارات (§12): الأرصدة، التحويلات خارج الدخل/المصروف، التقسيم، مجاميع الفترات، حدود الأسابيع/الأشهر، التراجع.
-- §13: `.github/workflows/deploy.yml` (المجلد موجود وفارغ)، `README.md` بالعربية.
-- التجربة الفعلية في المتصفح (مقاس هاتف، اللغتان، الوضعان، بدون إنترنت، PDF عربي، البصمة).
+- الاختبارات (§12): `src/tests/setup.ts` + اختبارات الأرصدة، التحويلات، التقسيم، مجاميع الفترات، حدود الأسابيع/الأشهر، التراجع.
+- التجربة الفعلية في المتصفح (مقاس هاتف، اللغتان، الوضعان، بدون إنترنت، PDF عربي).
+- §13: `.github/workflows/deploy.yml`، `README.md` بالعربية.
 
 ## 📌 قرارات تقنية يجب الالتزام بها
 
@@ -54,12 +55,10 @@
 11. **PDF:** رسم تقرير DOM مخصّص للطباعة ← `html-to-image` ← `jsPDF` (لا كتابة نص عربي مباشرة في PDF). الخطوط = خطوط النظام (`skipFonts: true`).
 12. SheetJS مثبّت من المصدر الرسمي `cdn.sheetjs.com` (نسخة npm قديمة).
 13. **أداة Bash في هذه البيئة تحوّل `\uXXXX` إلى أحرف فعلية** — لا تكتب هذه التسلسلات في الكود؛ استعمل `String.fromCharCode(...)`.
-14. مفاتيح الترجمة المستعملة حتى الآن: `common.today`، `common.yesterday`، `common.unknown`، `common.close`، `common.back`، `common.undo`، و`sys.*` أعلاه.
+14. **الترجمة:** أضف كل مفتاح جديد إلى `ar.ts` أولًا ثم `fr.ts` (نوعه `Dict`، فالناقص يُفشل `tsc`). المفاتيح الديناميكية: `errors.<ValidationError.code>`، `backup.errors.<code>`، `history.<action>`، `history.fields.<field>`، `tx.saved_<type>`، `sys.<sysKey>`.
 
 ## ▶️ الخطوة التالية بالتحديد
 
-1. (التبعيات مثبّتة) مراجعة تحذير `allow-scripts` إن لزم.
-2. تشغيل `npm run icons`.
-3. كتابة `src/components/TxEditor.tsx` (مع لوحة الأرقام وشبكة التصنيفات)، ثم `src/main.tsx` و`src/App.tsx`، ثم الصفحات بالترتيب: الترحيب ← الرئيسية ← العمليات ← التقارير ← الإعدادات.
-4. استخراج كل مفاتيح `t('...')` وكتابة `src/i18n/ar.ts` و`src/i18n/fr.ts`.
-5. `src/tests/setup.ts` والاختبارات، ثم `npx tsc --noEmit` و`npm test`، ثم التجربة في المتصفح، ثم workflow النشر وREADME.
+1. كتابة `src/tests/setup.ts` والاختبارات ثم `npm test`.
+2. التجربة في المتصفح بمقاس هاتف.
+3. workflow النشر وREADME.

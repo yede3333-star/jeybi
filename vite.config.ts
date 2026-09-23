@@ -2,11 +2,14 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import pkg from './package.json' with { type: 'json' };
 
 // BASE_PATH is set by the GitHub Pages workflow (e.g. "/jeybi/").
 // Locally and on Netlify a relative base works everywhere thanks to HashRouter.
 export default defineConfig({
   base: process.env.BASE_PATH || './',
+  build: { chunkSizeWarningLimit: 700 },
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   plugins: [
     react(),
     tailwindcss(),
