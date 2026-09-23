@@ -1,0 +1,83 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Arabic', 'Noto Naskh Arabic', Tahoma, Arial, sans-serif;
+  --color-surface: #ffffff;
+  --color-page: #f4f6f4;
+  --color-ink: #10201c;
+  --color-muted: #5b6b66;
+  --color-line: #e3e8e5;
+  --color-income: #059669;
+  --color-expense: #dc2626;
+  --color-transfer: #2563eb;
+}
+
+html[data-font='sm'] { font-size: 14px; }
+html[data-font='md'] { font-size: 16px; }
+html[data-font='lg'] { font-size: 18.5px; }
+
+html.dark {
+  --color-surface: #13201d;
+  --color-page: #0b1412;
+  --color-ink: #e8efec;
+  --color-muted: #93a59f;
+  --color-line: #22332f;
+  --color-income: #34d399;
+  --color-expense: #f87171;
+  --color-transfer: #60a5fa;
+  color-scheme: dark;
+}
+
+html, body {
+  background: var(--color-page);
+  color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+body {
+  font-family: var(--font-sans);
+  /* Always Latin digits: font-variant does not change digits, Intl does — this only keeps numbers aligned */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Amounts are isolated from surrounding bidi text; the signed number itself is wrapped in LRI…PDI by formatMoney. */
+.num { unicode-bidi: isolate; white-space: nowrap; }
+
+@utility btn {
+  @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 font-semibold transition active:scale-[0.98] disabled:opacity-40;
+}
+
+@layer components {
+  .card { @apply rounded-2xl bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.05)] ring-1 ring-line; }
+  .btn-primary { @apply btn bg-teal-700 text-white hover:bg-teal-800 dark:bg-teal-600 dark:hover:bg-teal-500; }
+  .btn-ghost { @apply btn bg-transparent text-ink hover:bg-black/5 dark:hover:bg-white/5; }
+  .btn-soft { @apply btn bg-teal-700/10 text-teal-800 hover:bg-teal-700/15 dark:bg-teal-400/10 dark:text-teal-300; }
+  .btn-danger { @apply btn bg-red-600/10 text-red-700 hover:bg-red-600/15 dark:text-red-400; }
+  .input { @apply min-h-12 w-full rounded-xl border border-line bg-surface px-3 text-base text-ink outline-none placeholder:text-muted focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20; }
+  .label { @apply mb-1 block text-sm font-medium text-muted; }
+  .chip { @apply inline-flex min-h-9 items-center gap-1 rounded-full border border-line bg-surface px-3 text-sm; }
+  .chip-on { @apply border-teal-600 bg-teal-600/10 text-teal-800 dark:text-teal-300; }
+  .section-title { @apply px-1 pb-2 pt-5 text-sm font-semibold text-muted; }
+  .text-income { color: var(--color-income); }
+  .text-expense { color: var(--color-expense); }
+  .text-transfer { color: var(--color-transfer); }
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes toast-in { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.animate-sheet { animation: sheet-up 0.22s ease-out; }
+.animate-fade { animation: fade-in 0.18s ease-out; }
+.animate-toast { animation: toast-in 0.2s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-sheet, .animate-fade, .animate-toast { animation: none; }
+}
