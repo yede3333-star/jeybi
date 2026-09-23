@@ -25,7 +25,7 @@
 
 ## 🟡 مُنجز جزئيًا
 
-- **§1 التبعيات:** تم تثبيت تبعيات التشغيل. أمر تثبيت تبعيات التطوير (`vite`, `@vitejs/plugin-react`, `typescript`, `@types/react`, `@types/react-dom`, `tailwindcss`, `@tailwindcss/vite`, `vite-plugin-pwa`, `vitest`, `fake-indexeddb`, `@types/node`) كان ما يزال يعمل لحظة التوقف — **تحقّق** من وجود `devDependencies` في `package.json`، وإلا أعد تشغيل الأمر (انظر الخطوة التالية).
+- **§1 التبعيات:** كل التبعيات مثبّتة (vite 8، typescript 7، vitest 5، tailwindcss 4.3، vite-plugin-pwa 1.3، react-router 8). نبّه npm إلى أن سكربتات التثبيت لبعض الحزم لم تُفعَّل (`npm approve-scripts --allow-scripts-pending` للمراجعة) — تحقّق من ذلك إن فشل `vite` أو `vitest` في التشغيل. انتبه: TypeScript 7 إصدار رئيسي جديد؛ إن ظهرت مشاكل مع الأدوات فجرّب `typescript@5`.
 - **§2 الترجمة:** `src/i18n/index.ts` يستورد `./ar` و`./fr` — **الملفان `src/i18n/ar.ts` و`src/i18n/fr.ts` غير موجودين بعد.**
 - **§12 الاختبارات:** مجلد `src/tests/` فارغ؛ `vitest.config.ts` يشير إلى `src/tests/setup.ts` **غير الموجود** (يجب أن يحتوي `import 'fake-indexeddb/auto';`).
 
@@ -58,10 +58,7 @@
 
 ## ▶️ الخطوة التالية بالتحديد
 
-1. التحقق من تبعيات التطوير:
-   ```bash
-   npm install -D vite @vitejs/plugin-react typescript @types/react @types/react-dom tailwindcss @tailwindcss/vite vite-plugin-pwa vitest fake-indexeddb @types/node
-   ```
+1. (التبعيات مثبّتة) مراجعة تحذير `allow-scripts` إن لزم.
 2. تشغيل `npm run icons`.
 3. كتابة `src/components/TxEditor.tsx` (مع لوحة الأرقام وشبكة التصنيفات)، ثم `src/main.tsx` و`src/App.tsx`، ثم الصفحات بالترتيب: الترحيب ← الرئيسية ← العمليات ← التقارير ← الإعدادات.
 4. استخراج كل مفاتيح `t('...')` وكتابة `src/i18n/ar.ts` و`src/i18n/fr.ts`.
