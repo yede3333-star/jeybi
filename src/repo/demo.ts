@@ -87,7 +87,8 @@ export async function addDemoData(lang: 'ar' | 'fr' = 'ar', now = Date.now()): P
   await db.transaction('rw', [db.transactions, db.audit, db.meta, db.categories, db.receipts], async () => {
     for (const it of past) await createTransaction(it);
   });
-  return past.length;
+  // Count stored rows, not inputs: transfers with a fee also create a linked fee expense.
+  return db.transactions.filter((t) => !!t.demo).count();
 }
 
 export async function clearDemoData(): Promise<number> {
