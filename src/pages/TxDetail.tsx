@@ -14,6 +14,8 @@ import { createTransaction, deleteTransaction, feeOf, getTransaction } from '../
 import { historyOf } from '../repo/audit';
 import { getReceipt } from '../repo/receipts';
 import { saveTemplate, templateFromTx } from '../repo/templates';
+import { formatNumber } from '../lib/money';
+import { rateToString } from '../services/currency';
 
 export default function TxDetail() {
   const { id = '' } = useParams();
@@ -41,6 +43,10 @@ export default function TxDetail() {
   if (!tx) return <><PageHeader back title={t('tx.details')} /><Empty title={t('tx.notFound')} /></>;
 
   const color = tx.type === 'income' ? 'text-income' : tx.type === 'expense' ? 'text-expense' : 'text-transfer';
+  const isDebt = tx.type === 'debt';
+  const debt = names.debt(tx.debtId);
+  const isPrincipal = !!debt && debt.principalTxId === tx.id;
+  const signed = tx.type === 'expense' || (isDebt && tx.flow === 'out') ? -tx.amount : tx.amount;
   const del = async () => {
     const { undo } = await deleteTransaction(tx.id);
     toast({ message: t('tx.deleted'), undo });
@@ -50,6 +56,7 @@ export default function TxDetail() {
     const { tx: copy, undo } = await createTransaction({
       type: tx.type, amount: tx.amount, walletId: tx.walletId, toWalletId: tx.toWalletId, splits: tx.splits,
       date: Date.now(), note: tx.note, tags: tx.tags, fee: fee || 0,
+      ...(tx.origCurrency ? { origCurrency: tx.origCurrency, origAmount: tx.origAmount, rateE4: tx.rateE4 } : {}),
     });
     toast({ message: t('tx.duplicated'), undo });
     nav(`/tx/${copy.id}`, { replace: true });
@@ -64,15 +71,15 @@ export default function TxDetail() {
 
   return (
     <div>
-      <PageHeader back title={t('tx.details')} actions={
+      <PageHeader back title={t('tx.details')} actions={isDebt ? undefined :
         <button className="btn-ghost size-11 min-h-11 rounded-full p-0" onClick={() => openEdit(tx)} aria-label={t('common.edit')}>
           <Pencil className="size-5" />
         </button>
       } />
       <div className="space-y-3 px-4">
         <div className="card p-5 text-center">
-          <p className="text-sm text-muted">{t(`types.${tx.type}`)}</p>
-          <p className={`num mt-1 text-4xl font-extrabold ${color}`}>{fmt.money(tx.type === 'expense' ? -tx.amount : tx.amount, { sign: tx.type === 'income' })}</p>
+          <p className="text-sm text-muted">{isDebt ? names.debtLabel(tx) : t(`types.${tx.type}`)}</p>
+          <p className={`num mt-1 text-4xl font-extrabold ${color}`}>{fmt.money(signed, { sign: tx.type !== 'transfer' && tx.type !== 'expense' })}</p>
           <p className="mt-1 text-sm text-muted">{fmt.date(tx.date, 'long')} · <span className="num">{fmt.date(tx.date, 'time')}</span></p>
         </div>
 
@@ -93,6 +100,11 @@ export default function TxDetail() {
               </div>
             );
           })}
+          {tx.origCurrency && (
+            <Field label={t('currencies.original')} value={<span className="num">{formatNumber(tx.origAmount ?? 0, fmt.lang)} {tx.origCurrency} × {rateToString(tx.rateE4 ?? 0)}</span>} />
+          )}
+          {isDebt && <Field label={t('debts.title')} value={<Link className="text-teal-700 underline dark:text-teal-400" to="/debts">{debt?.person ?? '—'}</Link>} />}
+          {tx.recurringKey && <Field label={t('recurring.title')} value={<Link className="text-teal-700 underline dark:text-teal-400" to="/recurring">{t('recurring.generated')}</Link>} />}
           {tx.note && <Field label={t('tx.note')} value={tx.note} />}
           {tx.tags.length > 0 && (
             <Field label={t('tx.tags')} value={
@@ -109,6 +121,9 @@ export default function TxDetail() {
           </button>
         )}
 
+        {isDebt ? (
+          !isPrincipal && <button className="btn-danger w-full" onClick={del}><Trash2 className="size-4" />{t('common.delete')}</button>
+        ) : (
         <div className="grid grid-cols-2 gap-2">
           <button className="btn-soft" onClick={duplicate}><Copy className="size-4" />{t('tx.duplicate')}</button>
           {tx.type !== 'transfer' ? (
@@ -117,6 +132,8 @@ export default function TxDetail() {
           <button className="btn-soft" onClick={() => openEdit(tx)}><Pencil className="size-4" />{t('common.edit')}</button>
           <button className="btn-danger" onClick={del}><Trash2 className="size-4" />{t('common.delete')}</button>
         </div>
+        )}
+        {isPrincipal && <p className="text-sm text-muted">{t('debts.managePrincipal')}</p>}
 
         <h2 className="section-title flex items-center gap-1"><History className="size-4" />{t('history.title')}</h2>
         <div className="card divide-y divide-line">

@@ -17,6 +17,7 @@ import { periodLabel, periodToParams, toDay } from '../lib/periodParams';
 import type { Period } from '../lib/period';
 import { shareOrDownload } from '../services/share';
 import { stripBidi } from '../lib/money';
+import { ReportExtras, extrasSheets, useReportExtras } from '../components/ReportExtras';
 
 /** Link to the transactions that make up a figure. */
 function txLink(p: Period, extra: Record<string, string>) {
@@ -147,6 +148,7 @@ export default function Reports() {
     [txs, names.wallets, names.categories, period, previous],
   );
   const periodText = periodLabel(period, fmt);
+  const extras = useReportExtras(period, txs);
   const fileBase = `jeybi-${t('reports.fileName')}-${toDay(period.start)}`;
 
   // Render the print view off-screen, capture it, then share or download.
@@ -195,6 +197,8 @@ export default function Reports() {
       expenseHeader: [t('reports.expenseByCategory'), t('tx.amount'), '%'],
       incomeHeader: [t('reports.incomeBySource'), t('tx.amount'), '%'],
       walletHeader: [t('reports.byWallet'), t('types.income'), t('types.expense')],
+      origHeader: t('currencies.original'),
+      extraSheets: extrasSheets(extras, t, (id) => names.categoryName(id, true), (ms) => stripBidi(fmt.date(ms, 'medium'))),
       txHeader: [t('reports.col.date'), t('reports.col.type'), t('tx.amount'), t('tx.wallet'), t('tx.toWallet'), t('tx.category'), t('tx.note'), t('tx.tags')],
       categoryName: (id) => names.categoryName(id, true),
       walletName: names.walletName,
@@ -288,6 +292,8 @@ export default function Reports() {
             </section>
           </>
         )}
+
+        <ReportExtras data={extras} />
 
         <section className="card p-4">
           <h2 className="mb-3 font-bold">{t('reports.export')}</h2>

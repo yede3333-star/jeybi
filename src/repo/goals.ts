@@ -55,7 +55,7 @@ export async function getReserved(): Promise<Map<ID, number>> {
   return reservedByWallet(await db.goalMoves.toArray());
 }
 
-export async function saveGoal(data: Omit<Goal, 'id' | 'createdAt' | 'archived'> & { id?: ID; archived?: boolean }): Promise<Goal> {
+export async function saveGoal(data: Omit<Goal, 'id' | 'createdAt' | 'archived'> & { id?: ID; archived?: boolean; demo?: boolean }): Promise<Goal> {
   if (!data.name.trim()) throw new ValidationError('name');
   if (!Number.isInteger(data.target) || data.target <= 0) throw new ValidationError('amount');
   const existing = data.id ? await db.goals.get(data.id) : undefined;

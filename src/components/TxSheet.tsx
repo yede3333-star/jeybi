@@ -18,6 +18,10 @@ import { keypadToMinor, minorToKeypad, parseAmount } from '../lib/money';
 import { createTransaction, feeOf, updateTransaction, ValidationError, type TxInput } from '../repo/transactions';
 import { getReceipt, saveReceipt } from '../repo/receipts';
 import { compressImage } from '../services/image';
+import { parseRate, rateToString, toBase } from '../services/currency';
+import { setSettings } from '../repo/settings';
+import { checkBudgetAlerts } from '../repo/budgets';
+import { useNames } from '../hooks/data';
 
 interface SplitRow { categoryId: ID | ''; amount: string }
 
@@ -31,7 +35,10 @@ export default function TxSheet({ initialType, tx, onClose }: { initialType: Edi
   const editing = !!tx;
 
   const [type, setType] = useState<EditType>(initialType);
-  const [buf, setBuf] = useState(tx ? minorToKeypad(tx.amount) : '');
+  const [buf, setBuf] = useState(tx ? minorToKeypad(tx.origCurrency ? tx.origAmount ?? 0 : tx.amount) : '');
+  // Currency of the typed amount: base, or a foreign one converted with a manual rate.
+  const [currency, setCurrency] = useState(tx?.origCurrency ?? settings.currency);
+  const [rateStr, setRateStr] = useState(tx?.rateE4 ? rateToString(tx.rateE4) : '');
   const [step, setStep] = useState<'amount' | 'details'>(tx ? 'details' : 'amount');
   const [walletId, setWalletId] = useState<ID | undefined>(tx?.walletId);
   const [toWalletId, setToWalletId] = useState<ID | undefined>(tx?.toWalletId);
@@ -51,7 +58,18 @@ export default function TxSheet({ initialType, tx, onClose }: { initialType: Edi
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const amount = keypadToMinor(buf);
+  const keyed = keypadToMinor(buf);
+  const foreign = currency !== settings.currency && type !== 'transfer';
+  const rateE4 = foreign ? parseRate(rateStr) : null;
+  /** Always in base currency. */
+  const amount = foreign ? (rateE4 ? toBase(keyed, rateE4) : 0) : keyed;
+  const { categoryName } = useNames();
+  const pickCurrency = (c: string) => {
+    setCurrency(c);
+    const last = settings.lastRates[c];
+    setRateStr(last ? rateToString(last) : '');
+    if (c !== settings.currency) setSplitMode(false);
+  };
   const active = wallets.filter((w) => !w.archived);
 
   // default wallets: last used, then first active
@@ -86,6 +104,10 @@ export default function TxSheet({ initialType, tx, onClose }: { initialType: Edi
       type, amount, walletId: walletId ?? '', date, note, tags,
       receiptId: receiptId ?? null,
     };
+    if (foreign) {
+      if (!rateE4) { setError(t('errors.rate')); return; }
+      Object.assign(input, { origCurrency: currency, origAmount: keyed, rateE4 });
+    }
     if (type === 'transfer') {
       input.toWalletId = toWalletId;
       input.fee = fee ? parseAmount(fee) ?? -1 : 0;
@@ -104,13 +126,20 @@ export default function TxSheet({ initialType, tx, onClose }: { initialType: Edi
         const { undo } = await createTransaction(input);
         toast({ message: t(`tx.saved_${type}`, { amount: fmt.money(amount) }), undo });
       }
+      if (foreign && rateE4) void setSettings({ lastRates: { ...settings.lastRates, [currency]: rateE4 } });
+      if (type === 'expense') {
+        // Budget alerts (80% / 100%) are shown right after the expense that crosses them.
+        const fresh = await checkBudgetAlerts();
+        const top = fresh.sort((a, b) => b.level - a.level)[0];
+        if (top) toast({ message: t(top.level >= 100 ? 'budgets.alert100' : 'budgets.alert80', { name: categoryName(top.budget.categoryId) }), tone: top.level >= 100 ? 'error' : 'default', duration: 6000 });
+      }
       onClose();
     } catch (e) {
       setError(e instanceof ValidationError ? t(`errors.${e.code}`) : String(e));
     } finally {
       setBusy(false);
     }
-  }, [type, amount, walletId, toWalletId, date, note, tags, receiptId, receiptBlob, fee, splitMode, splits, categoryId, tx, toast, t, fmt, onClose]);
+  }, [type, amount, walletId, toWalletId, date, note, tags, receiptId, receiptBlob, fee, splitMode, splits, categoryId, tx, toast, t, fmt, onClose, foreign, rateE4, currency, keyed, settings.lastRates, categoryName]);
 
   const onPickCategory = (id: ID) => {
     setCategoryId(id);
@@ -131,11 +160,29 @@ export default function TxSheet({ initialType, tx, onClose }: { initialType: Edi
   );
 
   const amountColor = type === 'income' ? 'text-income' : type === 'expense' ? 'text-expense' : 'text-transfer';
+  const currencies = [settings.currency, ...settings.currencies.map((c) => c.code)];
   const amountDisplay = (
-    <button type="button" onClick={() => setStep('amount')} className="w-full py-3 text-center" aria-label={t('tx.amount')}>
-      <span className={`num text-4xl font-bold ${amountColor}`} dir="ltr">{formatBuffer(buf, lang)}</span>
-      <span className="ms-2 text-lg text-muted">{fmt.currencyLabel}</span>
-    </button>
+    <div>
+      <button type="button" onClick={() => setStep('amount')} className="w-full py-3 text-center" aria-label={t('tx.amount')}>
+        <span className={`num text-4xl font-bold ${amountColor}`} dir="ltr">{formatBuffer(buf, lang)}</span>
+        <span className="ms-2 text-lg text-muted">{foreign ? currency : fmt.currencyLabel}</span>
+      </button>
+      {type !== 'transfer' && currencies.length > 1 && (
+        <div className="no-scrollbar flex justify-center gap-1.5 overflow-x-auto pb-1" dir="ltr">
+          {currencies.map((c) => (
+            <button key={c} type="button" onClick={() => pickCurrency(c)} className={`chip min-h-8 px-2.5 text-xs font-bold ${c === (foreign ? currency : settings.currency) ? 'chip-on' : ''}`}>{c}</button>
+          ))}
+        </div>
+      )}
+      {foreign && (
+        <div className="mt-2 flex items-center justify-center gap-2 text-sm">
+          <span className="num" dir="ltr">1 {currency} =</span>
+          <input className="input num min-h-10 w-24 text-center" dir="ltr" inputMode="decimal" value={rateStr} placeholder="0" aria-label={t('currencies.rate')} onChange={(e) => setRateStr(e.target.value)} />
+          <span>{fmt.currencyLabel}</span>
+          <span className="num font-semibold text-muted">= {rateE4 ? fmt.money(amount) : '…'}</span>
+        </div>
+      )}
+    </div>
   );
 
   if (step === 'amount') {
@@ -252,7 +299,7 @@ export default function TxSheet({ initialType, tx, onClose }: { initialType: Edi
               <span className="label">{t('tx.tags')}</span>
               <TagInput value={tags} onChange={setTags} />
             </div>
-            {type !== 'transfer' && !splitMode && (
+            {type !== 'transfer' && !splitMode && !foreign && (
               <button type="button" className="btn-soft w-full" onClick={() => {
                 setSplitMode(true);
                 setSplits(categoryId ? [{ categoryId, amount: minorToKeypad(amount) }, { categoryId: '', amount: '' }] : [{ categoryId: '', amount: minorToKeypad(amount) }]);

@@ -4,7 +4,7 @@
 // entry has an empty note; its category shows as "بقالة" but is stored as { name: '', sysKey:
 // 'groceries' } and translated at display time. So we search the *displayed* names of the
 // categories (and parents), wallets and templates, in both languages, plus the note and tags.
-import type { Category, ID, Template, Transaction, Wallet } from '../data/types';
+import type { Category, Debt, ID, Template, Transaction, Wallet } from '../data/types';
 import { parseAmount } from '../lib/money';
 
 const TATWEEL = new RegExp(String.fromCharCode(0x0640), 'g');
@@ -49,13 +49,15 @@ export interface SearchNames {
   category: Map<ID, string>;
   wallet: Map<ID, string>;
   template: Map<ID, string>;
+  /** Person of each debt (debt movements are found by the person's name). */
+  debt: Map<ID, string>;
 }
 
 /**
  * @param labels  display names of a built-in entity in every UI language (for sysKey items)
  */
 export function buildSearchNames(
-  categories: Category[], wallets: Wallet[], templates: Template[], labels: (sysKey: string) => string[],
+  categories: Category[], wallets: Wallet[], templates: Template[], labels: (sysKey: string) => string[], debts: Debt[] = [],
 ): SearchNames {
   const names = (e: Category | Wallet) => [e.name, ...(e.sysKey ? labels(e.sysKey) : [])].filter(Boolean).join(' ');
   const byId = new Map(categories.map((c) => [c.id, c]));
@@ -68,6 +70,7 @@ export function buildSearchNames(
     category,
     wallet: new Map(wallets.map((w) => [w.id, normalize(names(w))])),
     template: new Map(templates.map((t) => [t.id, normalize(t.name)])),
+    debt: new Map(debts.map((d) => [d.id, normalize(`${d.person} ${d.note}`)])),
   };
 }
 
@@ -78,6 +81,7 @@ function haystack(t: Transaction, names?: SearchNames): string {
     parts.push(names.wallet.get(t.walletId) ?? '');
     if (t.toWalletId) parts.push(names.wallet.get(t.toWalletId) ?? '');
     if (t.templateId) parts.push(names.template.get(t.templateId) ?? '');
+    if (t.debtId) parts.push(names.debt.get(t.debtId) ?? '');
   }
   return parts.join(' ');
 }
@@ -88,10 +92,17 @@ function haystack(t: Transaction, names?: SearchNames): string {
  */
 export function matchQuery(t: Transaction, q: SearchQuery, names?: SearchNames): number | null {
   if (q.amount != null) {
-    if (t.amount === q.amount) return t.amount;
+    if (t.amount === q.amount || t.origAmount === q.amount) return t.amount; // base or original currency amount
     const part = t.splits.find((s) => s.amount === q.amount);
     if (part) return part.amount;
   }
   const hay = haystack(t, names);
   return q.tokens.every((tok) => hay.includes(tok)) ? t.amount : null;
+}
+
+/** Text-only match for other entities (debts by person, savings goals by name). */
+export function matchText(q: SearchQuery, text: string, amounts: number[] = []): boolean {
+  if (q.amount != null && amounts.includes(q.amount)) return true;
+  const hay = normalize(text);
+  return q.tokens.every((tok) => hay.includes(tok));
 }

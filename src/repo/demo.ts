@@ -3,6 +3,11 @@ import { db } from '../data/db';
 import type { Category, Wallet } from '../data/types';
 import { createTransaction, type TxInput } from './transactions';
 import { rebuildFlows } from './flows';
+import { addRepayment, createDebt } from './debts';
+import { monthKey, setBudget } from './budgets';
+import { saveRecurring } from './recurring';
+import { moveGoalMoney, saveGoal } from './goals';
+import { toBase } from '../services/currency';
 
 /** Deterministic PRNG so the demo looks the same every time. */
 function rng(seed: number) {
@@ -13,7 +18,7 @@ function rng(seed: number) {
 }
 
 export async function hasDemoData(): Promise<boolean> {
-  return (await db.transactions.filter((t) => !!t.demo).count()) > 0;
+  return (await db.transactions.filter((t) => !!t.demo).count()) > 0 || (await db.debts.filter((d) => !!d.demo).count()) > 0;
 }
 
 /** Adds ~6 months of realistic sample transactions (all flagged `demo`, removable). */
@@ -88,16 +93,56 @@ export async function addDemoData(lang: 'ar' | 'fr' = 'ar', now = Date.now()): P
   await db.transaction('rw', [db.transactions, db.audit, db.meta, db.categories, db.receipts, db.debts], async () => {
     for (const it of past) await createTransaction(it);
   });
+  await addPhase2Demo(L, today, cash, bankily, bank, c);
   // Count stored rows, not inputs: transfers with a fee also create a linked fee expense.
   return db.transactions.filter((t) => !!t.demo).count();
 }
 
 export async function clearDemoData(): Promise<number> {
-  return db.transaction('rw', db.transactions, db.audit, db.meta, async () => {
+  return db.transaction('rw', [db.transactions, db.audit, db.meta, db.debts, db.budgets, db.recurring, db.pending, db.goals, db.goalMoves], async () => {
     const ids = await db.transactions.filter((t) => !!t.demo).primaryKeys();
+    await db.debts.filter((d) => !!d.demo).delete();
+    await db.budgets.filter((b) => !!b.demo).delete();
+    const rules = await db.recurring.filter((r) => !!r.demo).primaryKeys();
+    await db.recurring.bulkDelete(rules);
+    for (const r of rules) await db.pending.where('recurringId').equals(r).delete();
+    const goals = await db.goals.filter((g) => !!g.demo).primaryKeys();
+    await db.goals.bulkDelete(goals);
+    for (const g of goals) await db.goalMoves.where('goalId').equals(g).delete();
     await db.transactions.bulkDelete(ids);
     for (const id of ids) await db.audit.where('txId').equals(id).delete();
     await rebuildFlows();
     return ids.length;
   });
+}
+
+/** Phase-2 features in the demo: debts, budgets, a recurring bill, goals and a euro expense. */
+async function addPhase2Demo(
+  L: (ar: string, fr: string) => string, today: Date, cash: Wallet, bankily: Wallet, bank: Wallet,
+  c: (key: string, kind: 'income' | 'expense') => Category | undefined,
+) {
+  const DAY = 86_400_000;
+  const t0 = +today + 10 * 3600e3;
+  const lent = await createDebt({ direction: 'owed_to_me', person: L('محمد ولد أحمد', 'Mohamed Ahmed'), amount: 8_000_00, date: t0 - 50 * DAY,
+    dueDate: t0 - 20 * DAY, note: L('سلفة', 'Prêt'), walletId: cash.id, demo: true });
+  await addRepayment(lent.debt.id, { amount: 3_000_00, walletId: cash.id, date: t0 - 10 * DAY });
+  await createDebt({ direction: 'i_owe', person: L('فاطمة', 'Fatimetou'), amount: 5_000_00, date: t0 - 15 * DAY,
+    dueDate: t0 + 30 * DAY, note: '', walletId: bankily.id, demo: true });
+  const month = monthKey(t0), prev = monthKey(t0 - 32 * DAY);
+  for (const m of [month, prev]) {
+    const food = c('food', 'expense'), tr = c('transport', 'expense'), fam = c('family', 'expense');
+    if (food) await setBudget(m, food.id, 12_000_00, true);
+    if (tr) await setBudget(m, tr.id, 3_500_00, true);
+    if (fam) await setBudget(m, fam.id, 5_000_00, true);
+  }
+  const phone = c('phone', 'expense');
+  if (phone) await saveRecurring({ name: L('اشتراك الإنترنت', 'Abonnement internet'), type: 'expense', amount: 1_500_00, walletId: bankily.id,
+    categoryId: phone.id, note: '', tags: [], frequency: 'monthly', startDate: t0 + 5 * DAY, endDate: null, mode: 'auto', active: true, demo: true });
+  const sheep = await saveGoal({ name: L('خروف العيد', 'Mouton de l’Aïd'), target: 60_000_00, targetDate: t0 + 120 * DAY, icon: 'target', color: '#a16207', demo: true });
+  await moveGoalMoney(sheep.id, bank.id, 8_000_00, t0 - 20 * DAY, '', true);
+  const phoneGoal = await saveGoal({ name: L('هاتف جديد', 'Nouveau téléphone'), target: 15_000_00, targetDate: null, icon: 'smartphone', color: '#2563eb', demo: true });
+  await moveGoalMoney(phoneGoal.id, bankily.id, 3_000_00, t0 - 5 * DAY, '', true);
+  const clothes = c('clothes', 'expense');
+  if (clothes) await createTransaction({ type: 'expense', amount: toBase(30_00, 435_000), walletId: cash.id, categoryId: clothes.id, date: t0 - 9 * DAY,
+    note: L('حذاء من الخارج', 'Chaussures (achat à l’étranger)'), origCurrency: 'EUR', origAmount: 30_00, rateE4: 435_000, demo: true });
 }

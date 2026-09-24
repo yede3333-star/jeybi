@@ -3,7 +3,7 @@ import { HashRouter, NavLink, Route, Routes, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { ChartPie, House, List, Plus, Settings as SettingsIcon } from 'lucide-react';
 import { SettingsProvider, useSettings } from './hooks/settings';
-import { ToastProvider } from './components/Toast';
+import { ToastProvider, useToast } from './components/Toast';
 import { TxEditorProvider, useTxEditor } from './components/TxEditor';
 import { LockGate } from './components/Lock';
 import { initDatabase, requestPersistentStorage } from './repo/init';
@@ -22,6 +22,13 @@ const Security = lazy(() => import('./pages/Security'));
 const Backup = lazy(() => import('./pages/Backup'));
 const Reports = lazy(() => import('./pages/Reports'));
 const WhereMoney = lazy(() => import('./pages/WhereMoney'));
+const Debts = lazy(() => import('./pages/Debts'));
+const Budgets = lazy(() => import('./pages/Budgets'));
+const RecurringPage = lazy(() => import('./pages/Recurring'));
+const Goals = lazy(() => import('./pages/Goals'));
+const Reconcile = lazy(() => import('./pages/Reconcile'));
+const Zakat = lazy(() => import('./pages/Zakat'));
+const Currencies = lazy(() => import('./pages/Currencies'));
 
 /** Same look as the static shell in index.html, so there is no flash between them. */
 function Splash() {
@@ -75,10 +82,30 @@ function ScrollTop() {
   return null;
 }
 
+/**
+ * Generates due recurring transactions once the home screen is visible (never before): there is no
+ * server, so this is how they appear. Safe to run on every open — see repo/recurring.ts.
+ */
+function BackgroundJobs() {
+  const toast = useToast();
+  const { t } = useTranslation();
+  useEffect(() => {
+    const ric = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 1000));
+    ric(async () => {
+      const { runRecurring } = await import('./repo/recurring');
+      const r = await runRecurring();
+      if (r.created) toast({ message: t('recurring.autoCreated', { n: r.created }) });
+      else if (r.pending) toast({ message: t('reminders.pending', { n: r.pending }) });
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 function Shell() {
   return (
     <HashRouter>
       <ScrollTop />
+      <BackgroundJobs />
       <main className="mx-auto min-h-dvh max-w-md pb-40">
         <Suspense fallback={<Splash />}>
           <Routes>
@@ -94,6 +121,13 @@ function Shell() {
             <Route path="/settings/trash" element={<Trash />} />
             <Route path="/settings/security" element={<Security />} />
             <Route path="/settings/backup" element={<Backup />} />
+            <Route path="/settings/currencies" element={<Currencies />} />
+            <Route path="/debts" element={<Debts />} />
+            <Route path="/budgets" element={<Budgets />} />
+            <Route path="/recurring" element={<RecurringPage />} />
+            <Route path="/goals" element={<Goals />} />
+            <Route path="/reconcile" element={<Reconcile />} />
+            <Route path="/zakat" element={<Zakat />} />
             <Route path="*" element={<Home />} />
           </Routes>
         </Suspense>

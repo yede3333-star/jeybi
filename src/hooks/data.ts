@@ -1,7 +1,8 @@
 import { useCallback, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useTranslation } from 'react-i18next';
-import type { Category, ID, Wallet } from '../data/types';
+import type { Category, Debt, ID, Transaction, Wallet } from '../data/types';
+import { db } from '../data/db';
 import { listWallets } from '../repo/wallets';
 import { listCategories } from '../repo/categories';
 import { listActive, allTags } from '../repo/transactions';
@@ -43,7 +44,18 @@ export function useNames() {
     },
     [cMap, nameOf, t],
   );
+  const debts = useLiveQuery(() => db.debts.toArray(), []);
+  const dMap = useMemo(() => new Map((debts ?? []).map((d) => [d.id, d])), [debts]);
+  const debt = useCallback((id?: ID): Debt | undefined => (id ? dMap.get(id) : undefined), [dMap]);
+  /** Label of a debt movement: "Lent to X", "Repayment from X"… */
+  const debtLabel = useCallback((tx: Transaction) => {
+    const d = tx.debtId ? dMap.get(tx.debtId) : undefined;
+    const person = d?.person ?? t('common.unknown');
+    const principal = !!d && d.principalTxId === tx.id;
+    const key = d?.direction === 'i_owe' ? (principal ? 'borrowedFrom' : 'repaidTo') : (principal ? 'lentTo' : 'repaidBy');
+    return t(`debts.label.${key}`, { person });
+  }, [dMap, t]);
   const wallet = useCallback((id?: ID) => (id ? wMap.get(id) : undefined), [wMap]);
   const category = useCallback((id?: ID) => (id ? cMap.get(id) : undefined), [cMap]);
-  return { wallet, category, walletName, categoryName, nameOf, wallets, categories, ready: !!wallets && !!categories };
+  return { wallet, category, walletName, categoryName, nameOf, wallets, categories, debt, debtLabel, ready: !!wallets && !!categories };
 }

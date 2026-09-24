@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Category, Template, Transaction, Wallet } from '../data/types';
-import { buildSearchNames, matchQuery, normalize, parseQuery } from '../services/search';
+import { buildSearchNames, matchQuery, matchText, normalize, parseQuery } from '../services/search';
+import { createDebt, addRepayment } from '../repo/debts';
+import { saveGoal, listGoals } from '../repo/goals';
 import { filterTransactions, sumFiltered } from '../services/reports';
 import ar from '../i18n/ar';
 import fr from '../i18n/fr';
@@ -155,5 +157,37 @@ describe('search against the real database (built-in categories)', () => {
     await applyTemplate(tpl);
     const n = buildSearchNames(await db.categories.toArray(), await db.wallets.toArray(), await listTemplates(), labels);
     expect(filterTransactions(await listActive(), { text: 'المطار', names: n })).toHaveLength(1);
+  });
+});
+
+describe("phase 2: people in debts, savings goals, foreign amounts", () => {
+  beforeEach(async () => {
+    await wipeAll();
+    await initDatabase();
+  });
+  it("finds debt movements by the person's name, with Arabic normalisation", async () => {
+    const cash = (await db.wallets.toArray()).find((w) => w.sysKey === "cash")!;
+    const { debt } = await createDebt({ direction: "owed_to_me", person: "محمد الأمين", amount: 5_000_00, date: Date.now(), dueDate: null, note: "", walletId: cash.id });
+    await addRepayment(debt.id, { amount: 2_000_00, walletId: cash.id, date: Date.now() });
+    const n = buildSearchNames(await db.categories.toArray(), await db.wallets.toArray(), [], labels, await db.debts.toArray());
+    const all = await listActive();
+    expect(filterTransactions(all, { text: "الامين", names: n })).toHaveLength(2);
+    expect(filterTransactions(all, { text: "محمد", names: n })).toHaveLength(2);
+    expect(filterTransactions(all, { text: "2000", names: n })).toHaveLength(1);
+    expect(matchText(parseQuery("امين")!, debt.person)).toBe(true);
+  });
+  it("finds savings goals by name (accent/hamza insensitive) and by target amount", async () => {
+    await saveGoal({ name: "Voyage à Atâr", target: 80_000_00, targetDate: null, icon: "plane", color: "#000" });
+    await saveGoal({ name: "خروف الأضحى", target: 60_000_00, targetDate: null, icon: "target", color: "#000" });
+    const goals = (await listGoals()).map((g) => g.goal);
+    const hit = (q: string) => goals.filter((g) => matchText(parseQuery(q)!, g.name, [g.target])).map((g) => g.name);
+    expect(hit("atar")).toEqual(["Voyage à Atâr"]);
+    expect(hit("الاضحي")).toEqual(["خروف الأضحى"]);
+    expect(hit("60 000")).toEqual(["خروف الأضحى"]);
+  });
+  it("matches the original foreign-currency amount", () => {
+    const t = tx({ id: "eur", amount: 865_00, origCurrency: "EUR", origAmount: 20_00, rateE4: 432_500 });
+    expect(matchQuery(t, parseQuery("20")!, names)).toBe(865_00);
+    expect(matchQuery(t, parseQuery("865")!, names)).toBe(865_00);
   });
 });

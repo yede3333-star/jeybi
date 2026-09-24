@@ -4,7 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import type { TxType } from '../data/types';
 import { useNames, useTags, useTemplates, useTransactions } from '../hooks/data';
-import { buildSearchNames } from '../services/search';
+import { buildSearchNames, matchText, parseQuery } from '../services/search';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { listDebts } from '../repo/debts';
+import { listGoals } from '../repo/goals';
+import { Link } from 'react-router';
+import { HandCoins, PiggyBank } from 'lucide-react';
 import i18n from '../i18n';
 import { useFmt } from '../hooks/fmt';
 import { PageHeader, Sheet, Empty } from '../components/ui';
@@ -53,11 +58,22 @@ export default function Transactions() {
   const { categories, wallets, walletName, categoryName } = useNames();
   const [f, setF] = useFilterParams();
   const templates = useTemplates();
+  const debts = useLiveQuery(listDebts, []);
+  const goals = useLiveQuery(listGoals, []);
   // Names as displayed, in both languages, so a search finds "بقالة" and "Épicerie" alike.
   const searchNames = useMemo(() => {
     const ar = i18n.getFixedT('ar'), fr = i18n.getFixedT('fr');
-    return buildSearchNames(categories ?? [], wallets ?? [], templates ?? [], (k) => [ar(`sys.${k}`), fr(`sys.${k}`)]);
-  }, [categories, wallets, templates]);
+    return buildSearchNames(categories ?? [], wallets ?? [], templates ?? [], (k) => [ar(`sys.${k}`), fr(`sys.${k}`)], (debts ?? []).map((d) => d.debt));
+  }, [categories, wallets, templates, debts]);
+  // People (debts) and savings goals matching the search, shown above the transactions.
+  const entityHits = useMemo(() => {
+    const q = f.q ? parseQuery(f.q) : null;
+    if (!q) return { debts: [], goals: [] };
+    return {
+      debts: (debts ?? []).filter((d) => matchText(q, `${d.debt.person} ${d.debt.note}`, [d.debt.amount, d.remaining])),
+      goals: (goals ?? []).filter((g) => matchText(q, g.goal.name, [g.goal.target])),
+    };
+  }, [f.q, debts, goals]);
   const [showFilters, setShowFilters] = useState(false);
   const [limit, setLimit] = useState(PAGE);
 
@@ -114,6 +130,22 @@ export default function Transactions() {
           </div>
         )}
       </div>
+
+      {(entityHits.debts.length > 0 || entityHits.goals.length > 0) && (
+        <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto px-4">
+          {entityHits.debts.map((d) => (
+            <Link key={d.debt.id} to="/debts" className="chip min-h-11 shrink-0 gap-2">
+              <HandCoins className="size-4 text-muted" />{d.debt.person}
+              <span className={`num text-sm font-bold ${d.debt.direction === 'owed_to_me' ? 'text-income' : 'text-expense'}`}>{fmt.money(d.remaining)}</span>
+            </Link>
+          ))}
+          {entityHits.goals.map((g) => (
+            <Link key={g.goal.id} to="/goals" className="chip min-h-11 shrink-0 gap-2">
+              <PiggyBank className="size-4 text-muted" />{g.goal.name}<span className="num text-sm font-bold">{fmt.pct(g.pct)}</span>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {txs && (
         <div className="card mx-4 mt-3 grid grid-cols-3 divide-x divide-line p-0 text-center rtl:divide-x-reverse">
@@ -172,7 +204,7 @@ function FilterSheet({ open, onClose, f, setF, walletsList }: {
         <div>
           <span className="label">{t('filters.type')}</span>
           <div className="flex flex-wrap gap-2">
-            {(['expense', 'income', 'transfer'] as TxType[]).map((ty) => (
+            {(['expense', 'income', 'transfer', 'debt'] as TxType[]).map((ty) => (
               <button key={ty} className={`chip ${f.type.includes(ty) ? 'chip-on' : ''}`} onClick={() => setF({ type: toggle(f.type, ty) })}>{t(`types.${ty}`)}</button>
             ))}
           </div>

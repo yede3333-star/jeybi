@@ -1,4 +1,6 @@
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useTranslation } from 'react-i18next';
 import { ArrowDownLeft, ArrowUpRight, ChevronLeft, CloudUpload, Plus, Zap } from 'lucide-react';
 import { useBalances, useHasTransactions, useNames, usePeriodTotals, useRecent, useTemplates, useWallets } from '../hooks/data';
@@ -12,6 +14,22 @@ import { useTxEditor } from '../components/TxEditor';
 import { periodFor } from '../lib/period';
 import { applyTemplate } from '../repo/templates';
 import { setSettings } from '../repo/settings';
+import { getReserved } from '../repo/goals';
+
+// Reminders, indicators and tools: a separate chunk, mounted once the home screen is idle so they
+// never delay the first paint after unlocking.
+const HomeReminders = lazy(() => import('../components/HomeExtras'));
+const HomeBottom = lazy(() => import('../components/HomeExtras').then((m) => ({ default: m.HomeBottom })));
+
+function useIdle() {
+  const [idle, setIdle] = useState(false);
+  useEffect(() => {
+    const ric = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 300));
+    const id = ric(() => setIdle(true), { timeout: 800 } as IdleRequestOptions);
+    return () => (window.cancelIdleCallback ?? window.clearTimeout)(id as number);
+  }, []);
+  return idle;
+}
 
 const DAY = 86_400_000;
 
@@ -50,6 +68,8 @@ export default function Home() {
   const templates = useTemplates();
   const balances = useBalances();
   const { nameOf, category } = useNames();
+  const idle = useIdle();
+  const reserved = useLiveQuery(getReserved, []);
 
   // Period bounds only change when the day changes; recomputed on each render is cheap.
   const day = periodFor('day', Date.now(), s.weekStartsOn);
@@ -111,9 +131,14 @@ export default function Home() {
             <span className={`num text-lg font-bold ${(balances?.byWallet.get(w.id) ?? 0) < 0 ? 'text-expense' : ''}`}>
               {fmt.money(balances?.byWallet.get(w.id) ?? 0)}
             </span>
+            {!!reserved?.get(w.id) && (
+              <span className="num -mt-1 text-xs text-muted">{t('goals.reservedShort', { amount: fmt.money(reserved.get(w.id)!) })}</span>
+            )}
           </button>
         ))}
       </div>
+
+      {idle && <Suspense fallback={null}><HomeReminders /></Suspense>}
 
       <div className="flex items-center justify-between px-4">
         <h2 className="section-title flex items-center gap-1"><Zap className="size-4" />{t('home.quick')}</h2>
@@ -148,6 +173,7 @@ export default function Home() {
           <TxRow key={tx.id} tx={tx} fmt={fmt} showDate onClick={() => nav(`/tx/${tx.id}`)} />
         ))}
       </div>
+      {idle && <Suspense fallback={null}><HomeBottom /></Suspense>}
     </div>
   );
 }

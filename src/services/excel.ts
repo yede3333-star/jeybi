@@ -17,7 +17,10 @@ export interface ExcelLabels {
   categoryName: (id: string) => string;
   walletName: (id: string) => string;
   typeName: (t: Transaction['type']) => string;
+  origHeader?: string;
   formatDate: (ms: number) => string;
+  /** Additional sheets (debts, budgets, goals). */
+  extraSheets?: Array<{ name: string; rows: Array<Array<string | number>> }>;
 }
 
 /** Builds an .xlsx with a summary sheet and a detailed transactions sheet. */
@@ -36,16 +39,17 @@ export async function reportToExcel(report: Report, txs: Transaction[], L: Excel
   summary.push([], L.walletHeader);
   for (const w of report.byWallet) summary.push([L.walletName(w.walletId), fromMinor(w.income), fromMinor(w.expense)]);
 
-  const rows: Array<Array<string | number>> = [L.txHeader];
+  const rows: Array<Array<string | number>> = [[...L.txHeader, L.origHeader ?? '']];
   for (const t of [...txs].sort((a, b) => a.date - b.date)) {
     const cats = t.splits.length > 1
       ? t.splits.map((s) => `${L.categoryName(s.categoryId)} (${fromMinor(s.amount)})`).join(' + ')
       : t.splits[0] ? L.categoryName(t.splits[0].categoryId) : '';
     rows.push([
       L.formatDate(t.date), L.typeName(t.type),
-      fromMinor(t.type === 'expense' ? -t.amount : t.amount),
+      fromMinor(t.type === 'expense' || (t.type === 'debt' && t.flow === 'out') ? -t.amount : t.amount),
       L.walletName(t.walletId), t.toWalletId ? L.walletName(t.toWalletId) : '',
       cats, t.note, t.tags.map((x) => `#${x}`).join(' '),
+      t.origCurrency ? `${fromMinor(t.origAmount ?? 0)} ${t.origCurrency} @ ${(t.rateE4 ?? 0) / 10000}` : '',
     ]);
   }
 
@@ -56,6 +60,11 @@ export async function reportToExcel(report: Report, txs: Transaction[], L: Excel
   ws2['!cols'] = [{ wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 30 }, { wch: 30 }, { wch: 20 }];
   XLSX.utils.book_append_sheet(wb, ws1, L.sheetSummary.slice(0, 31));
   XLSX.utils.book_append_sheet(wb, ws2, L.sheetTransactions.slice(0, 31));
+  for (const sh of L.extraSheets ?? []) {
+    const ws = XLSX.utils.aoa_to_sheet(sh.rows);
+    ws['!cols'] = sh.rows[0].map(() => ({ wch: 16 }));
+    XLSX.utils.book_append_sheet(wb, ws, sh.name.slice(0, 31));
+  }
   if (L.rtl) wb.Workbook = { Views: [{ RTL: true }] };
   const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   return new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
