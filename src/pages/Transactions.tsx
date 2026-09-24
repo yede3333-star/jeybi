@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
@@ -10,7 +10,7 @@ import { listDebts } from '../repo/debts';
 import { listGoals } from '../repo/goals';
 import { Link } from 'react-router';
 import { HandCoins, PiggyBank } from 'lucide-react';
-import i18n, { loadLanguage } from '../i18n';
+import i18n from '../i18n';
 import { useFmt } from '../hooks/fmt';
 import { PageHeader, Sheet, Empty } from '../components/ui';
 import { TxRow, groupByDay } from '../components/TxRow';
@@ -61,13 +61,10 @@ export default function Transactions() {
   const debts = useLiveQuery(listDebts, []);
   const goals = useLiveQuery(listGoals, []);
   // Names as displayed, in both languages, so a search finds "بقالة" and "Épicerie" alike.
-  // Search matches built-in names in both languages: make sure both dictionaries are loaded.
-  const [bothLangs, setBothLangs] = useState(false);
-  useEffect(() => { void Promise.all([loadLanguage('ar'), loadLanguage('fr')]).then(() => setBothLangs(true)); }, []);
   const searchNames = useMemo(() => {
     const ar = i18n.getFixedT('ar'), fr = i18n.getFixedT('fr');
     return buildSearchNames(categories ?? [], wallets ?? [], templates ?? [], (k) => [ar(`sys.${k}`), fr(`sys.${k}`)], (debts ?? []).map((d) => d.debt));
-  }, [categories, wallets, templates, debts, bothLangs]);
+  }, [categories, wallets, templates, debts]);
   // People (debts) and savings goals matching the search, shown above the transactions.
   const entityHits = useMemo(() => {
     const q = f.q ? parseQuery(f.q) : null;

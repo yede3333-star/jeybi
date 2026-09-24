@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
-import { i18nReady } from './i18n';
+import './i18n';
 import './index.css';
 import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -19,13 +19,10 @@ const updateSW = registerSW({
   },
 });
 
-// The static shell in index.html stays on screen while the (single) dictionary loads.
-void i18nReady.finally(() => {
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <ErrorBoundary>
-        <App />
-      </ErrorBoundary>
-    </StrictMode>,
-  );
-});
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  </StrictMode>,
+);

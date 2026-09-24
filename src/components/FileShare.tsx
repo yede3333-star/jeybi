@@ -55,20 +55,24 @@ export function FileShareProvider({ children }: { children: ReactNode }) {
     prepare().then(
       (file) => {
         const shareFile = new File([file.blob], file.shareAs?.filename ?? file.filename, { type: file.shareAs?.type ?? file.blob.type });
-        setState({ phase: 'ready', file, shareFile, canShare: canShareFile(shareFile), onDone });
+        // closed while preparing = cancelled: do not reopen
+        setState((cur) => cur && { phase: 'ready', file, shareFile, canShare: canShareFile(shareFile), onDone });
       },
-      (e) => setState({ phase: 'error', message: { text: errorMessage(e, t, 'share:prepare'), tone: 'error' } }),
+      (e) => setState((cur) => cur && { phase: 'error', message: { text: errorMessage(e, t, 'share:prepare'), tone: 'error' } }),
     );
   }, [t]);
+
+  // Result messages never reopen a sheet the user has already closed.
+  const say = (text: string, tone: 'ok' | 'warn' | 'error') => setState((cur) => cur && { ...cur, message: { text, tone } });
 
   // Called synchronously from the click: the user gesture is still valid.
   const share = () => {
     if (!state?.shareFile || !state.file) return;
     navigator.share({ files: [state.shareFile], title: state.file.title }).then(
-      () => { state.onDone?.('shared'); setState({ ...state, message: { text: t('share.shared'), tone: 'ok' } }); },
+      () => { state.onDone?.('shared'); say(t('share.shared'), 'ok'); },
       (e: Error) => {
-        if (e?.name === 'AbortError') setState({ ...state, message: { text: t('share.cancelled'), tone: 'warn' } });
-        else setState({ ...state, message: { text: `${errorMessage(e, t, 'share:share')} ${t('share.tryDownload')}`, tone: 'error' } });
+        if (e?.name === 'AbortError') say(t('share.cancelled'), 'warn');
+        else say(`${errorMessage(e, t, 'share:share')} ${t('share.tryDownload')}`, 'error');
       },
     );
   };
@@ -79,9 +83,9 @@ export function FileShareProvider({ children }: { children: ReactNode }) {
       downloadBlob(state.file.blob, state.file.filename);
       state.onDone?.('downloaded');
       const standalone = matchMedia('(display-mode: standalone)').matches;
-      setState({ ...state, message: { text: t(standalone ? 'share.downloadStartedApp' : 'share.downloadStarted'), tone: 'ok' } });
+      say(t(standalone ? 'share.downloadStartedApp' : 'share.downloadStarted'), 'ok');
     } catch (e) {
-      setState({ ...state, message: { text: errorMessage(e, t, 'share:download'), tone: 'error' } });
+      say(errorMessage(e, t, 'share:download'), 'error');
     }
   };
 
@@ -96,7 +100,7 @@ export function FileShareProvider({ children }: { children: ReactNode }) {
         )}
         {state?.phase === 'ready' && state.file && (
           <div className="space-y-3">
-            <p className="text-center text-sm text-muted"><span className="font-semibold text-ink">{state.file.filename}</span> · <span className="num">{size} KB</span></p>
+            <p className="text-center text-sm text-muted"><bdi dir="ltr" className="font-semibold text-ink">{state.file.filename}</bdi> · <bdi dir="ltr" className="num">{size} KB</bdi></p>
             {state.canShare
               ? <button className="btn-primary w-full text-lg" onClick={share}><Share2 className="size-5" />{t('share.shareNow')}</button>
               : <p className="rounded-xl bg-black/5 p-3 text-sm text-muted dark:bg-white/5">{t('share.cannotShare')}</p>}

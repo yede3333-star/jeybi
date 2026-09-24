@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Delete, Fingerprint, Lock as LockIcon } from 'lucide-react';
 import { useSettings } from '../hooks/settings';
 import { verifyBiometric, verifyPin, createPinHash } from '../services/security';
 import { logError } from '../services/errorLog';
+import { markFirstScreen, markUnlockStart } from '../services/startupTiming';
 import { setSettings } from '../repo/settings';
 
 // Set when the user has just proven they know the PIN (created it during onboarding, or unlocked),
@@ -69,13 +70,15 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   const [checking, setChecking] = useState(false);
   const tried = useRef(false);
 
+  useEffect(() => { markFirstScreen('lock'); }, []);
+
   // Unlocking with the biometric never runs PBKDF2: only the signature check (a few ms).
   const tryBio = useCallback(async () => {
     if (!s.bioCredentialId) return;
     setBioState('pending');
     try {
       const ok = await verifyBiometric({ credentialId: s.bioCredentialId, publicKey: s.bioPublicKey, alg: s.bioAlg });
-      if (ok) { onUnlock(); return; }
+      if (ok) { markUnlockStart('bio'); onUnlock(); return; }
       setBioState('failed');
     } catch (e) {
       // NotAllowedError = cancelled / timed out: expected, the PIN is right there.
@@ -101,6 +104,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   useEffect(() => {
     if (pin.length < s.pinLength || checking) return;
     setChecking(true);
+    markUnlockStart('pin'); // includes the PIN check itself
     void verifyPin(pin, s).then((ok) => {
       setChecking(false);
       if (!ok) { setError(true); setPin(''); navigator.vibrate?.(150); return; }
@@ -118,7 +122,8 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   const press = (k: string) => {
     setError(false);
     if (k === 'back') setPin((p) => p.slice(0, -1));
-    else if (pin.length < s.pinLength) setPin((p) => p + k);
+    // functional update: fast typing (several keys before a re-render) never loses or adds a digit
+    else setPin((p) => (p.length < s.pinLength ? p + k : p));
   };
 
   return (
@@ -147,14 +152,17 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
 }
 
 export function PinPad({ onPress, extra }: { onPress: (k: string) => void; extra?: ReactNode }) {
-  useEffect(() => {
+  const latest = useRef(onPress);
+  latest.current = onPress;
+  // Attached once, before the first paint: keys typed as soon as the pad is visible are never lost.
+  useLayoutEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (/^[0-9]$/.test(e.key)) onPress(e.key);
-      else if (e.key === 'Backspace') onPress('back');
+      if (/^[0-9]$/.test(e.key)) latest.current(e.key);
+      else if (e.key === 'Backspace') latest.current('back');
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onPress]);
+  }, []);
   return (
     <div dir="ltr" className="grid w-full max-w-xs grid-cols-3 gap-3">
       {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((k) => (

@@ -17,6 +17,7 @@ import { setSettings } from '../repo/settings';
 import { getReserved } from '../repo/goals';
 import { useDayKey } from '../hooks/day';
 import { errorMessage } from '../services/errors';
+import { markHomeReady } from '../services/startupTiming';
 
 // Reminders, indicators and tools: a separate chunk, mounted once the home screen is idle so they
 // never delay the first paint after unlocking.
@@ -80,6 +81,8 @@ export default function Home() {
   const today = usePeriodTotals(day.start, day.end);
   const monthTotals = usePeriodTotals(month.start, month.end);
   const stats = today && monthTotals ? { today, month: monthTotals } : null;
+  const ready = !!balances && !!stats && recent !== undefined;
+  useEffect(() => { if (ready) markHomeReady(); }, [ready]);
 
   const runTemplate = async (id: string) => {
     const tpl = templates?.find((x) => x.id === id);

@@ -109,7 +109,8 @@ describe('balance integrity under random operation sequences', () => {
           const id = pick(debts);
           const d = (await db.debts.get(id))!;
           await updateDebt(id, { direction: d.direction === 'owed_to_me' ? 'i_owe' : 'owed_to_me', person: d.person, amount: d.amount, date: d.date, dueDate: null, note: '', walletId: d.walletId });
-          for (const t of await db.transactions.where('debtId').equals(id).toArray()) if (t.deletedAt == null) apply(t.walletId, -2 * (t.flow === 'in' ? t.amount : -t.amount));
+          // rows are read after the flip: change = new effect − old effect = 2 × new effect
+          for (const t of await db.transactions.where('debtId').equals(id).toArray()) if (t.deletedAt == null) apply(t.walletId, 2 * (t.flow === 'in' ? t.amount : -t.amount));
         } else if (op < 0.76) {
           const w = pick(wallets), real = (expected[w] ?? 0) + (Math.floor(r() * 2000) - 1000) * 100;
           await reconcile(w, real, true);
