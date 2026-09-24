@@ -28,8 +28,11 @@ export async function setOpeningBalances(values: Record<ID, number>) {
 
 /** Deletes the wallet only if unused; otherwise archives it. */
 export async function removeWallet(id: ID): Promise<'deleted' | 'archived'> {
-  return db.transaction('rw', db.wallets, db.transactions, async () => {
-    const used = (await db.transactions.where('walletId').equals(id).count()) + (await db.transactions.where('toWalletId').equals(id).count());
+  return db.transaction('rw', [db.wallets, db.transactions, db.recurring, db.goalMoves, db.debts, db.templates], async () => {
+    // Anything that points at the wallet keeps it (archived) so nothing is left dangling.
+    const used = (await db.transactions.where('walletId').equals(id).count()) + (await db.transactions.where('toWalletId').equals(id).count())
+      + (await db.recurring.filter((r) => r.walletId === id).count()) + (await db.goalMoves.where('walletId').equals(id).count())
+      + (await db.debts.filter((d) => d.walletId === id).count()) + (await db.templates.filter((t) => t.walletId === id).count());
     if (used) {
       await db.wallets.update(id, { archived: true, updatedAt: Date.now() });
       return 'archived';

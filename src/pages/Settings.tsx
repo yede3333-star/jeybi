@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  BellRing, Coins, HandCoins, Lightbulb, Moon, PiggyBank, Repeat, Scale, Target,
+  Bug, BellRing, Coins, HandCoins, Lightbulb, Moon, PiggyBank, Repeat, Scale, Target,
   ChevronLeft, CloudUpload, Database, FlaskConical, FolderTree, HardDrive, Lock, RotateCcw, Trash2, Wallet, Zap,
 } from 'lucide-react';
 import { PageHeader, Segmented } from '../components/ui';
@@ -14,7 +14,9 @@ import { addDemoData, clearDemoData, hasDemoData } from '../repo/demo';
 import { wipeAll } from '../repo/init';
 import { hasTransactions } from '../repo/summary';
 import { Toggle } from '../components/ui';
+import { readErrors } from '../services/errorLog';
 import type { WeekStart } from '../lib/period';
+import { errorMessage } from '../services/errors';
 
 function LinkRow({ to, icon, label, hint }: { to: string; icon: ReactNode; label: string; hint?: string }) {
   return (
@@ -39,6 +41,7 @@ export default function Settings() {
   const locked = useLiveQuery(hasTransactions, [], true);
   const [persisted, setPersisted] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
+  const errorCount = readErrors().length;
 
   useEffect(() => { void navigator.storage?.persisted?.().then(setPersisted); }, []);
 
@@ -48,7 +51,7 @@ export default function Settings() {
       if (demo) toast({ message: t('settings.demoCleared', { n: await clearDemoData() }) });
       else toast({ message: t('settings.demoAdded', { n: await addDemoData(lang) }) });
     } catch (e) {
-      toast({ message: String(e), tone: 'error' });
+      toast({ message: errorMessage(e, t), tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -159,6 +162,7 @@ export default function Settings() {
         <h2 className="section-title">{t('settings.dataSecurity')}</h2>
         <div className="card divide-y divide-line overflow-hidden">
           <LinkRow to="/settings/security" icon={<Lock className="size-5" />} label={t('settings.security')} hint={s.pinHash ? t('security.pinOn', { n: s.pinLength }) : t('security.pinOff')} />
+          <LinkRow to="/settings/errors" icon={<Bug className="size-5" />} label={t('errorsPage.title')} hint={errorCount ? t('errorsPage.count', { n: errorCount }) : t('errorsPage.none')} />
           <LinkRow to="/settings/backup" icon={<CloudUpload className="size-5" />} label={t('settings.backup')}
             hint={s.lastBackupAt ? t('backup.last', { date: new Intl.DateTimeFormat(lang === 'ar' ? 'ar-MR-u-nu-latn' : 'fr-FR', { dateStyle: 'medium' }).format(s.lastBackupAt) }) : t('backup.never')} />
           <div className="flex min-h-14 items-center gap-3 px-4 py-2">

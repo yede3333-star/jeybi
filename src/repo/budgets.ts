@@ -3,6 +3,7 @@ import { format, parse, subMonths } from 'date-fns';
 import { db } from '../data/db';
 import type { Budget, Category, ID, Transaction } from '../data/types';
 import { getSettings, setSettings } from './settings';
+import { MAX_AMOUNT, ValidationError } from './transactions';
 
 export const monthKey = (ms: number) => format(ms, 'yyyy-MM');
 export const monthRange = (month: string) => {
@@ -61,6 +62,7 @@ export async function monthBudgetStatuses(month: string): Promise<BudgetStatus[]
 }
 
 export async function setBudget(month: string, categoryId: ID, amount: number, demo = false): Promise<void> {
+  if (amount > MAX_AMOUNT) throw new ValidationError('tooLarge');
   const id = budgetId(month, categoryId);
   if (!amount || amount <= 0) await db.budgets.delete(id);
   else await db.budgets.put({ id, month, categoryId, amount, ...(demo ? { demo: true } : {}) });

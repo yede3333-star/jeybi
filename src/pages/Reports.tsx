@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
@@ -9,13 +9,12 @@ import { PeriodNav, usePeriod } from '../components/PeriodNav';
 import { ReportPrint } from '../components/ReportPrint';
 import { TxRow } from '../components/TxRow';
 import { IconBadge } from '../components/Icon';
-import { useToast } from '../components/Toast';
 import { useNames, useTransactions } from '../hooks/data';
 import { useFmt, type Formatters } from '../hooks/fmt';
 import { buildReport, filterTransactions, type CategorySlice, type Report } from '../services/reports';
 import { periodLabel, periodToParams, toDay } from '../lib/periodParams';
 import type { Period } from '../lib/period';
-import { shareOrDownload } from '../services/share';
+import { useFileShare } from '../components/FileShare';
 import { stripBidi } from '../lib/money';
 import { ReportExtras, extrasSheets, useReportExtras } from '../components/ReportExtras';
 
@@ -136,12 +135,12 @@ export default function Reports() {
   const { t, i18n } = useTranslation();
   const fmt = useFmt();
   const nav = useNavigate();
-  const toast = useToast();
   const names = useNames();
   const txs = useTransactions();
   const { period, previous, setPeriod } = usePeriod();
   const [exporting, setExporting] = useState<null | 'pdf' | 'image'>(null);
   const printRef = useRef<HTMLDivElement>(null);
+  const fileShare = useFileShare();
 
   const report = useMemo(
     () => (txs && names.wallets && names.categories ? buildReport(names.wallets, names.categories, txs, period, previous) : null),
@@ -151,31 +150,28 @@ export default function Reports() {
   const extras = useReportExtras(period, txs);
   const fileBase = `jeybi-${t('reports.fileName')}-${toDay(period.start)}`;
 
-  // Render the print view off-screen, capture it, then share or download.
-  useEffect(() => {
-    if (!exporting || !report) return;
-    let cancelled = false;
-    (async () => {
+  // Renders the print view off-screen and captures it. The share/download buttons come after, in
+  // the FileShare sheet, so share() runs inside the user's tap.
+  const exportImage = (kind: 'pdf' | 'image') => {
+    if (!report) return;
+    fileShare(async () => {
+      setExporting(kind);
       try {
-        // Let the off-screen print view mount; setTimeout also fires when the tab isn't painting.
-        await new Promise((r) => setTimeout(r, 120));
+        for (let i = 0; i < 100 && !printRef.current; i++) await new Promise((r) => setTimeout(r, 30));
+        if (!printRef.current) throw new Error('print view did not mount');
         const { captureElement, canvasToPdf, canvasToPngBlob } = await import('../services/pdf');
-        const canvas = await captureElement(printRef.current!);
-        if (cancelled) return;
-        const blob = exporting === 'pdf' ? await canvasToPdf(canvas) : await canvasToPngBlob(canvas);
-        const res = await shareOrDownload(blob, `${fileBase}.${exporting === 'pdf' ? 'pdf' : 'png'}`, `${t('reports.title')} — ${periodText}`);
-        if (res === 'downloaded') toast({ message: t('reports.downloaded') });
-      } catch (e) {
-        toast({ message: `${t('reports.exportFailed')}: ${String(e)}`, tone: 'error' });
+        const canvas = await captureElement(printRef.current);
+        const blob = kind === 'pdf' ? await canvasToPdf(canvas) : await canvasToPngBlob(canvas);
+        return { blob, filename: `${fileBase}.${kind === 'pdf' ? 'pdf' : 'png'}`, title: `${t('reports.title')} — ${periodText}` };
       } finally {
-        if (!cancelled) setExporting(null);
+        setExporting(null);
       }
-    })();
-    return () => { cancelled = true; };
-  }, [exporting]);
+    });
+  };
 
-  const exportExcel = async () => {
+  const exportExcel = () => {
     if (!report || !txs) return;
+    fileShare(async () => {
     const { reportToExcel } = await import('../services/excel');
     const rows = filterTransactions(txs, { start: period.start, end: period.end }).map((r) => r.tx);
     const blob = await reportToExcel(report, rows, {
@@ -205,8 +201,8 @@ export default function Reports() {
       typeName: (ty) => t(`types.${ty}`),
       formatDate: (ms) => stripBidi(fmt.date(ms, 'dateTime')),
     });
-    const res = await shareOrDownload(blob, `${fileBase}.xlsx`);
-    if (res === 'downloaded') toast({ message: t('reports.downloaded') });
+    return { blob, filename: `${fileBase}.xlsx`, title: `${t('reports.title')} — ${periodText}` };
+    });
   };
 
   if (!report) return <PageHeader title={t('nav.reports')} />;
@@ -299,8 +295,8 @@ export default function Reports() {
           <h2 className="mb-3 font-bold">{t('reports.export')}</h2>
           <div className="grid grid-cols-3 gap-2">
             <button className="btn-soft flex-col gap-1 py-2 text-sm" onClick={exportExcel}><FileSpreadsheet className="size-5" />Excel</button>
-            <button className="btn-soft flex-col gap-1 py-2 text-sm" disabled={!!exporting} onClick={() => setExporting('pdf')}><FileText className="size-5" />PDF</button>
-            <button className="btn-soft flex-col gap-1 py-2 text-sm" disabled={!!exporting} onClick={() => setExporting('image')}><Share2 className="size-5" />{t('reports.shareImage')}</button>
+            <button className="btn-soft flex-col gap-1 py-2 text-sm" disabled={!!exporting} onClick={() => exportImage('pdf')}><FileText className="size-5" />PDF</button>
+            <button className="btn-soft flex-col gap-1 py-2 text-sm" disabled={!!exporting} onClick={() => exportImage('image')}><Share2 className="size-5" />{t('reports.shareImage')}</button>
           </div>
           {exporting && <p className="mt-2 text-center text-sm text-muted">{t('reports.preparing')}</p>}
         </section>

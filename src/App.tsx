@@ -6,7 +6,10 @@ import { SettingsProvider, useSettings } from './hooks/settings';
 import { ToastProvider, useToast } from './components/Toast';
 import { TxEditorProvider, useTxEditor } from './components/TxEditor';
 import { LockGate, markUnlocked } from './components/Lock';
+import { FileShareProvider } from './components/FileShare';
 import { initDatabase, requestPersistentStorage } from './repo/init';
+import { logError } from './services/errorLog';
+import i18n from './i18n';
 import Home from './pages/Home';
 // Only the home screen is in the startup bundle. Every other page (and its libraries: charts,
 // Excel, PDF…) is a separate chunk loaded on first visit — all still precached for offline use.
@@ -29,6 +32,7 @@ const Goals = lazy(() => import('./pages/Goals'));
 const Reconcile = lazy(() => import('./pages/Reconcile'));
 const Zakat = lazy(() => import('./pages/Zakat'));
 const Currencies = lazy(() => import('./pages/Currencies'));
+const ErrorsPage = lazy(() => import('./pages/ErrorsPage'));
 
 /** Same look as the static shell in index.html, so there is no flash between them. */
 function Splash() {
@@ -93,10 +97,14 @@ function BackgroundJobs() {
     const ric = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 1000));
     ric(async () => {
       const { runRecurring } = await import('./repo/recurring');
-      const r = await runRecurring();
+      const r = await runRecurring().catch((e) => { logError(e, 'recurring'); return { created: 0, pending: 0 }; });
       if (r.created) toast({ message: t('recurring.autoCreated', { n: r.created }) });
       else if (r.pending) toast({ message: t('reminders.pending', { n: r.pending }) });
     });
+    // Errors that escaped the app's own handling: tell the user once, details are in the error log.
+    const onUnexpected = () => toast({ message: t('errors.unexpectedLogged'), tone: 'error' });
+    window.addEventListener('jeybi:unexpected-error', onUnexpected);
+    return () => window.removeEventListener('jeybi:unexpected-error', onUnexpected);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }
@@ -143,6 +151,7 @@ function Shell() {
             <Route path="/settings/security" element={<Security />} />
             <Route path="/settings/backup" element={<Backup />} />
             <Route path="/settings/currencies" element={<Currencies />} />
+            <Route path="/settings/errors" element={<ErrorsPage />} />
             <Route path="/debts" element={<Debts />} />
             <Route path="/budgets" element={<Budgets />} />
             <Route path="/recurring" element={<RecurringPage />} />
@@ -162,13 +171,17 @@ function Shell() {
 function Gate() {
   const s = useSettings();
   useEffect(() => {
-    if (s.onboarded) void requestPersistentStorage();
+    if (!s.onboarded) return;
+    const ric = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 2000));
+    ric(() => { void requestPersistentStorage(); });
   }, [s.onboarded]);
   if (!s.onboarded) return <Suspense fallback={<Splash />}><Onboarding /></Suspense>;
   return (
     <LockGate>
       <TxEditorProvider>
-        <Shell />
+        <FileShareProvider>
+          <Shell />
+        </FileShareProvider>
       </TxEditorProvider>
     </LockGate>
   );
@@ -178,9 +191,14 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   useEffect(() => {
-    initDatabase().then(() => setReady(true), (e) => setFailed(String(e)));
+    initDatabase().then(() => setReady(true), (e) => { logError(e, 'init'); setFailed(String((e as Error)?.name ?? e)); });
   }, []);
-  if (failed) return <p className="p-6 text-expense">IndexedDB: {failed}</p>;
+  if (failed) return (
+    <div className="p-6 text-center">
+      <p className="font-bold text-expense">{i18n.t('errors.storageFailed')}</p>
+      <p className="mt-2 text-sm text-muted">{i18n.t('errors.storageFailedHint')} ({failed})</p>
+    </div>
+  );
   if (!ready) return <Splash />;
   return (
     <SettingsProvider fallback={<Splash />}>

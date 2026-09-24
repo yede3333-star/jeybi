@@ -25,13 +25,15 @@ export async function updateCategory(id: ID, patch: Partial<Pick<Category, 'name
 
 /** Deletes a category only if nothing uses it; otherwise archives it. Returns what happened. */
 export async function removeCategory(id: ID): Promise<'deleted' | 'archived'> {
-  return db.transaction('rw', db.categories, db.transactions, db.templates, async () => {
+  return db.transaction('rw', [db.categories, db.transactions, db.templates, db.recurring, db.budgets], async () => {
     const children = await db.categories.where('parentId').equals(id).toArray();
     const ids = [id, ...children.map((c) => c.id)];
     let used = false;
     for (const cid of ids) {
       if (await db.transactions.where('categoryIds').equals(cid).count()) used = true;
       if (await db.templates.filter((t) => t.categoryId === cid).count()) used = true;
+      if (await db.recurring.filter((r) => r.categoryId === cid).count()) used = true;
+      if (await db.budgets.filter((b) => b.categoryId === cid).count()) used = true;
     }
     if (used) {
       for (const cid of ids) await db.categories.update(cid, { archived: true, updatedAt: Date.now() });

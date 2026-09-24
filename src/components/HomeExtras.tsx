@@ -12,6 +12,7 @@ import { useFmt } from '../hooks/fmt';
 import { useNames } from '../hooks/data';
 import { useTxEditor } from './TxEditor';
 import { format } from 'date-fns';
+import { useDayKey, useHourKey } from '../hooks/day';
 
 function Reminder({ icon, tone = 'info', children, to, action }: { icon: ReactNode; tone?: 'info' | 'warn' | 'danger'; children: ReactNode; to?: string; action?: ReactNode }) {
   const cls = tone === 'danger' ? 'bg-red-600/10 text-red-800 dark:text-red-300' : tone === 'warn' ? 'bg-amber-100 text-amber-950 dark:bg-amber-400/15 dark:text-amber-200' : 'bg-teal-700/10 text-teal-900 dark:text-teal-200';
@@ -31,7 +32,8 @@ export default function HomeReminders() {
   const fmt = useFmt();
   const { categoryName } = useNames();
   const { openNew } = useTxEditor();
-  const x = useLiveQuery(() => loadHomeExtras('reminders'), []);
+  const hour = useHourKey();
+  const x = useLiveQuery(() => loadHomeExtras('reminders'), [hour]);
   if (!x) return null;
   const today = format(Date.now(), 'yyyy-MM-dd');
 
@@ -62,7 +64,8 @@ export function HomeBottom() {
   const { t } = useTranslation();
   const fmt = useFmt();
   const { categoryName } = useNames();
-  const x = useLiveQuery(() => loadHomeExtras('insights'), []);
+  const day = useDayKey();
+  const x = useLiveQuery(() => loadHomeExtras('insights'), [day]);
   const ins = x?.insights;
   const tools = [
     { to: '/debts', icon: <HandCoins className="size-6" />, label: t('debts.title') },

@@ -12,10 +12,10 @@ import { useNames, useWallets } from '../hooks/data';
 import { useFmt } from '../hooks/fmt';
 import { goalMovesOf, listGoals, moveGoalMoney, removeGoal, saveGoal, type GoalProgress } from '../repo/goals';
 import { getReceipt, saveReceipt } from '../repo/receipts';
-import { ValidationError } from '../repo/transactions';
 import { compressImage } from '../services/image';
 import { minorToKeypad, parseAmount } from '../lib/money';
 import { fromDay, toDay } from '../lib/periodParams';
+import { errorMessage } from '../services/errors';
 
 function useImage(id?: string) {
   const [url, setUrl] = useState<string | null>(null);
@@ -151,7 +151,7 @@ function MoveForm({ goalId, dir, onClose }: { goalId: ID; dir: 'in' | 'out'; onC
       toast({ message: dir === 'in' ? t('goals.added') : t('goals.withdrawn'), undo });
       onClose();
     } catch (e) {
-      setError(e instanceof ValidationError ? t(`errors.${e.code}`) : String(e));
+      setError(errorMessage(e, t));
     }
   };
   return (
@@ -183,7 +183,7 @@ function GoalForm({ goal, onClose }: { goal?: Goal; onClose: () => void }) {
       await saveGoal({ id: goal?.id, name, target: parseAmount(target) ?? 0, targetDate: date ? fromDay(date) + 12 * 3600e3 : null, icon, color, imageId });
       onClose();
     } catch (e) {
-      setError(e instanceof ValidationError ? t(`errors.${e.code}`) : String(e));
+      setError(errorMessage(e, t));
     }
   };
   return (

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Camera, ChevronDown, ImageOff, Plus, SplitSquareHorizontal, Trash2 } from 'lucide-react';
+import { Camera, ChevronDown, ImageOff, ImagePlus, Plus, SplitSquareHorizontal, Trash2 } from 'lucide-react';
 import type { ID, Split, Transaction, TxType } from '../data/types';
 
 /** The editor handles everyday entries; debt movements are managed from the debts page. */
@@ -15,13 +15,14 @@ import { useWallets } from '../hooks/data';
 import { useLang, useSettings } from '../hooks/settings';
 import { useFmt } from '../hooks/fmt';
 import { keypadToMinor, minorToKeypad, parseAmount } from '../lib/money';
-import { createTransaction, feeOf, updateTransaction, ValidationError, type TxInput } from '../repo/transactions';
+import { createTransaction, feeOf, updateTransaction, type TxInput } from '../repo/transactions';
 import { getReceipt, saveReceipt } from '../repo/receipts';
 import { compressImage } from '../services/image';
 import { parseRate, rateToString, toBase } from '../services/currency';
 import { setSettings } from '../repo/settings';
 import { checkBudgetAlerts } from '../repo/budgets';
 import { useNames } from '../hooks/data';
+import { errorMessage } from '../services/errors';
 
 interface SplitRow { categoryId: ID | ''; amount: string }
 
@@ -135,7 +136,7 @@ export default function TxSheet({ initialType, tx, onClose }: { initialType: Edi
       }
       onClose();
     } catch (e) {
-      setError(e instanceof ValidationError ? t(`errors.${e.code}`) : String(e));
+      setError(errorMessage(e, t));
     } finally {
       setBusy(false);
     }
@@ -317,14 +318,26 @@ export default function TxSheet({ initialType, tx, onClose }: { initialType: Edi
                   </button>
                 </div>
               ) : (
-                <label className="btn-soft w-full cursor-pointer">
-                  <Camera className="size-4" /> {t('tx.addReceipt')}
-                  <input type="file" accept="image/*" capture="environment" className="hidden"
-                    onChange={async (e) => {
-                      const f = e.target.files?.[0];
-                      if (f) setReceiptBlob(await compressImage(f));
-                    }} />
-                </label>
+                // Two explicit choices: `capture` forces the camera, so the gallery input must not have it.
+                <div className="grid grid-cols-2 gap-2">
+                  {([['camera', true], ['gallery', false]] as const).map(([kind, capture]) => (
+                    <label key={kind} className="btn-soft cursor-pointer">
+                      {kind === 'camera' ? <Camera className="size-4" /> : <ImagePlus className="size-4" />}
+                      {t(kind === 'camera' ? 'tx.takePhoto' : 'tx.fromGallery')}
+                      <input type="file" accept="image/*" {...(capture ? { capture: 'environment' as const } : {})} className="hidden"
+                        onChange={async (e) => {
+                          const f = e.target.files?.[0];
+                          e.target.value = '';
+                          if (!f) return;
+                          try {
+                            setReceiptBlob(await compressImage(f)); // gallery photos are compressed exactly like camera ones
+                          } catch (err) {
+                            setError(errorMessage(err, t, 'receipt'));
+                          }
+                        }} />
+                    </label>
+                  ))}
+                </div>
               )}
             </div>
           </div>

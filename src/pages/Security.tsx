@@ -7,6 +7,7 @@ import { useToast } from '../components/Toast';
 import { useSettings } from '../hooks/settings';
 import { setSettings } from '../repo/settings';
 import { biometricAvailable, createPinHash, registerBiometric, verifyPin } from '../services/security';
+import { errorMessage } from '../services/errors';
 
 /** Two-step PIN creation (enter, confirm). 4 to 6 digits. */
 export function PinSetup({ onDone }: { onDone: () => void }) {
@@ -71,7 +72,7 @@ export default function Security() {
       await setSettings({ bioCredentialId: c.credentialId, bioPublicKey: c.publicKey, bioAlg: c.alg });
       toast({ message: t('security.bioEnabled') });
     } catch (e) {
-      toast({ message: `${t('security.bioFailed')} (${(e as Error).name || e})`, tone: 'error' });
+      toast({ message: `${t('security.bioFailed')}: ${errorMessage(e, t, 'bio:register')}`, tone: 'error' });
     }
   };
 

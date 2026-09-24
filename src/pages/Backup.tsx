@@ -5,8 +5,10 @@ import { PageHeader, Sheet } from '../components/ui';
 import { useToast } from '../components/Toast';
 import { useFmt } from '../hooks/fmt';
 import { useSettings } from '../hooks/settings';
-import { BackupError, exportBackup, markBackupDone, parseBackup, restoreBackup, type BackupFile, type BackupPreview } from '../repo/backup';
-import { fileStamp, shareOrDownload } from '../services/share';
+import { exportBackup, markBackupDone, parseBackup, restoreBackup, type BackupFile, type BackupPreview } from '../repo/backup';
+import { fileStamp } from '../services/share';
+import { errorMessage } from '../services/errors';
+import { useFileShare } from '../components/FileShare';
 
 export default function Backup() {
   const { t } = useTranslation();
@@ -15,22 +17,21 @@ export default function Backup() {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ file: BackupFile; preview: BackupPreview } | null>(null);
+  const fileShare = useFileShare();
 
-  const doExport = async () => {
-    setBusy(true);
-    try {
+  // Step 1 prepares the file; the share/download buttons in the sheet then run inside the user's tap.
+  const doExport = () => {
+    fileShare(async () => {
       const data = await exportBackup();
-      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-      const res = await shareOrDownload(blob, `jeybi-backup-${fileStamp()}.json`, t('backup.shareTitle'));
-      if (res !== 'cancelled') {
-        await markBackupDone();
-        toast({ message: res === 'shared' ? t('backup.shared') : t('backup.downloaded') });
-      }
-    } catch (e) {
-      toast({ message: String(e), tone: 'error' });
-    } finally {
-      setBusy(false);
-    }
+      const json = JSON.stringify(data);
+      return {
+        blob: new Blob([json], { type: 'application/json' }),
+        filename: `jeybi-backup-${fileStamp()}.json`,
+        title: t('backup.shareTitle'),
+        // Chrome on Android only shares allow-listed types: .json is refused, plain text is accepted.
+        shareAs: { filename: `jeybi-backup-${fileStamp()}.txt`, type: 'text/plain' },
+      };
+    }, () => { void markBackupDone(); });
   };
 
   const onFile = async (f: File | undefined) => {
@@ -38,7 +39,7 @@ export default function Backup() {
     try {
       setPending(parseBackup(await f.text()));
     } catch (e) {
-      toast({ message: e instanceof BackupError ? t(`backup.errors.${e.message}`) : String(e), tone: 'error' });
+      toast({ message: errorMessage(e, t, 'backup:read'), tone: 'error' });
     }
   };
 
@@ -50,7 +51,7 @@ export default function Backup() {
       setPending(null);
       toast({ message: t('backup.restored') });
     } catch (e) {
-      toast({ message: String(e), tone: 'error' });
+      toast({ message: errorMessage(e, t, 'backup:restore'), tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -78,7 +79,7 @@ export default function Backup() {
           <p className="text-sm text-muted">{t('backup.importHint')}</p>
           <label className="btn-soft w-full cursor-pointer">
             <FileJson className="size-5" />{t('backup.chooseFile')}
-            <input type="file" accept="application/json,.json" className="hidden" onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />
+            <input type="file" accept="application/json,.json,text/plain,.txt" className="hidden" onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />
           </label>
         </div>
       </div>

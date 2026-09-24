@@ -1,7 +1,9 @@
+import { logError } from './errorLog';
+
 /** Downscales and re-encodes a photo (receipt) to keep IndexedDB small. */
 export async function compressImage(file: Blob, maxSide = 1280, quality = 0.72): Promise<Blob> {
-  const bitmap = await createImageBitmap(file).catch(() => null);
-  if (!bitmap) return file;
+  const bitmap = await createImageBitmap(file).catch((e) => { logError(e, 'image:decode'); return null; });
+  if (!bitmap) return file; // keep the original if the browser cannot decode it (still saved)
   const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
   const w = Math.round(bitmap.width * scale), h = Math.round(bitmap.height * scale);
   const canvas = document.createElement('canvas');

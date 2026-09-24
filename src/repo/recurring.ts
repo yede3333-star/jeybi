@@ -6,7 +6,7 @@ import { addDays, addMonths, addWeeks, addYears, format, startOfDay } from 'date
 import { db } from '../data/db';
 import type { Frequency, ID, PendingOccurrence, Recurring } from '../data/types';
 import { uid } from '../lib/id';
-import { createTransaction } from './transactions';
+import { createTransaction, MAX_AMOUNT, ValidationError } from './transactions';
 
 /** Date of occurrence n (0-based), always computed from the start date. */
 export function occurrenceDate(start: number, frequency: Frequency, n: number): number {
@@ -43,6 +43,8 @@ export type RecurringInput = Omit<Recurring, 'id' | 'generated' | 'nextDue' | 'c
 
 /** Creates or updates a rule. Past occurrences (before today) are never back-filled. */
 export async function saveRecurring(input: RecurringInput, id?: ID): Promise<Recurring> {
+  if (!Number.isInteger(input.amount) || input.amount <= 0) throw new ValidationError('amount');
+  if (input.amount > MAX_AMOUNT) throw new ValidationError('tooLarge');
   const now = Date.now();
   return db.transaction('rw', db.recurring, async () => {
     const existing = id ? await db.recurring.get(id) : undefined;

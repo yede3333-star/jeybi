@@ -5,7 +5,7 @@ import { db } from '../data/db';
 import type { Goal, GoalMove, ID } from '../data/types';
 import { uid } from '../lib/id';
 import { getBalances } from './summary';
-import { ValidationError, type Undo } from './transactions';
+import { MAX_AMOUNT, ValidationError, type Undo } from './transactions';
 
 export interface GoalProgress {
   goal: Goal;
@@ -58,6 +58,7 @@ export async function getReserved(): Promise<Map<ID, number>> {
 export async function saveGoal(data: Omit<Goal, 'id' | 'createdAt' | 'archived'> & { id?: ID; archived?: boolean; demo?: boolean }): Promise<Goal> {
   if (!data.name.trim()) throw new ValidationError('name');
   if (!Number.isInteger(data.target) || data.target <= 0) throw new ValidationError('amount');
+  if (data.target > MAX_AMOUNT) throw new ValidationError('tooLarge');
   const existing = data.id ? await db.goals.get(data.id) : undefined;
   const goal: Goal = { ...existing, ...data, name: data.name.trim(), id: existing?.id ?? uid(), archived: data.archived ?? existing?.archived ?? false, createdAt: existing?.createdAt ?? Date.now() };
   await db.goals.put(goal);
@@ -70,6 +71,7 @@ export async function saveGoal(data: Omit<Goal, 'id' | 'createdAt' | 'archived'>
  */
 export async function moveGoalMoney(goalId: ID, walletId: ID, amount: number, date = Date.now(), note = '', demo = false): Promise<{ undo: Undo }> {
   if (!Number.isInteger(amount) || amount === 0) throw new ValidationError('amount');
+  if (Math.abs(amount) > MAX_AMOUNT) throw new ValidationError('tooLarge');
   const id = uid();
   await db.transaction('rw', [db.goalMoves, db.goals, db.wallets, db.meta, db.transactions], async () => {
     if (!(await db.goals.get(goalId))) throw new ValidationError('notFound');

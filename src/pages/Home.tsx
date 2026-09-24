@@ -15,6 +15,8 @@ import { periodFor } from '../lib/period';
 import { applyTemplate } from '../repo/templates';
 import { setSettings } from '../repo/settings';
 import { getReserved } from '../repo/goals';
+import { useDayKey } from '../hooks/day';
+import { errorMessage } from '../services/errors';
 
 // Reminders, indicators and tools: a separate chunk, mounted once the home screen is idle so they
 // never delay the first paint after unlocking.
@@ -72,6 +74,7 @@ export default function Home() {
   const reserved = useLiveQuery(getReserved, []);
 
   // Period bounds only change when the day changes; recomputed on each render is cheap.
+  useDayKey(); // re-render when the day changes (midnight / back from background)
   const day = periodFor('day', Date.now(), s.weekStartsOn);
   const month = periodFor('month', Date.now(), s.weekStartsOn);
   const today = usePeriodTotals(day.start, day.end);
@@ -85,7 +88,7 @@ export default function Home() {
       const { undo } = await applyTemplate(tpl);
       toast({ message: t('templates.applied', { name: tpl.name, amount: fmt.money(tpl.amount) }), undo });
     } catch (e) {
-      toast({ message: String(e), tone: 'error' });
+      toast({ message: errorMessage(e, t), tone: 'error' });
     }
   };
 

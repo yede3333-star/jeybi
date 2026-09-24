@@ -7,7 +7,7 @@ import { uid } from '../lib/id';
 import { log } from './audit';
 import { putTx, deleteTxRow } from './flows';
 import { paidOf, syncDebtClosure } from './debtSync';
-import { ValidationError, type Undo } from './transactions';
+import { MAX_AMOUNT, ValidationError, type Undo } from './transactions';
 import { getSettings } from './settings';
 
 const TABLES = () => [db.debts, db.transactions, db.audit, db.meta, db.categories, db.receipts] as const;
@@ -69,6 +69,7 @@ function movement(debt: Debt, amount: number, flow: 'in' | 'out', walletId: ID, 
 function validate(input: DebtInput) {
   if (!input.person.trim()) throw new ValidationError('person');
   if (!Number.isInteger(input.amount) || input.amount <= 0) throw new ValidationError('amount');
+  if (input.amount > MAX_AMOUNT) throw new ValidationError('tooLarge');
 }
 
 export async function createDebt(input: DebtInput): Promise<{ debt: Debt; undo: Undo }> {
@@ -111,6 +112,12 @@ export async function updateDebt(id: ID, input: DebtInput): Promise<void> {
       await deleteTxRow(old.id);
       next.principalTxId = null;
     }
+    // Direction changed after repayments: the repayments must flow the other way too.
+    if (next.direction !== debt.direction) {
+      for (const t of await db.transactions.where('debtId').equals(id).toArray()) {
+        if (t.id !== next.principalTxId) await putTx({ ...t, flow: repaymentFlow(next.direction), updatedAt: now });
+      }
+    }
     await db.debts.put(next);
     await syncDebtClosure(id, now);
   });
@@ -125,6 +132,7 @@ export async function addRepayment(debtId: ID, p: { amount: number; walletId: ID
     if (!debt) throw new ValidationError('notFound');
     const st = debtStatus(debt, await db.transactions.where('debtId').equals(debtId).toArray(), now);
     if (!Number.isInteger(p.amount) || p.amount <= 0) throw new ValidationError('amount');
+    if (p.amount > MAX_AMOUNT) throw new ValidationError('tooLarge');
     if (p.amount > st.remaining) throw new ValidationError('overpay');
     const tx = movement(debt, p.amount, repaymentFlow(debt.direction), p.walletId, p.date, (p.note ?? '').trim(), now, (await getSettings()).currency);
     txId = tx.id;

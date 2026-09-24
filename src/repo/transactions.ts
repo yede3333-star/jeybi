@@ -32,6 +32,12 @@ export interface TxInput {
   demo?: boolean;
 }
 
+/**
+ * Largest amount accepted anywhere (minor units): 10^14 = 1,000,000,000,000 (a trillion) in base
+ * currency. Keeps every sum far inside JavaScript's safe integer range, even after currency conversion.
+ */
+export const MAX_AMOUNT = 100_000_000_000_000;
+
 export class ValidationError extends Error {
   constructor(public code: string) { super(code); }
 }
@@ -45,6 +51,7 @@ export function normalizeTag(tag: string): string {
 
 function validate(input: TxInput): Split[] {
   if (!Number.isInteger(input.amount) || input.amount <= 0) throw new ValidationError('amount');
+  if (input.amount > MAX_AMOUNT || (input.fee ?? 0) > MAX_AMOUNT || (input.origAmount ?? 0) > MAX_AMOUNT) throw new ValidationError('tooLarge');
   if (input.origCurrency) {
     const { origAmount, rateE4 } = input;
     if (!Number.isInteger(origAmount) || origAmount! <= 0 || !Number.isInteger(rateE4) || rateE4! <= 0) throw new ValidationError('rate');

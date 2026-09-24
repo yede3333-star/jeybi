@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next';
 import { Delete, Fingerprint, Lock as LockIcon } from 'lucide-react';
 import { useSettings } from '../hooks/settings';
-import { verifyBiometric, verifyPin, biometricAvailable, createPinHash } from '../services/security';
+import { verifyBiometric, verifyPin, createPinHash } from '../services/security';
+import { logError } from '../services/errorLog';
 import { setSettings } from '../repo/settings';
 
 // Set when the user has just proven they know the PIN (created it during onboarding, or unlocked),
@@ -61,25 +62,41 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   const s = useSettings();
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
-  const [bio, setBio] = useState(false);
+  // Whether the biometric is usable was checked when it was enabled. Checking again here
+  // (isUserVerifyingPlatformAuthenticatorAvailable) is slow on Android and delayed the prompt.
+  const hasBio = !!s.bioCredentialId;
+  const [bioState, setBioState] = useState<'idle' | 'pending' | 'failed'>('idle');
   const [checking, setChecking] = useState(false);
   const tried = useRef(false);
 
+  // Unlocking with the biometric never runs PBKDF2: only the signature check (a few ms).
   const tryBio = useCallback(async () => {
     if (!s.bioCredentialId) return;
+    setBioState('pending');
     try {
       const ok = await verifyBiometric({ credentialId: s.bioCredentialId, publicKey: s.bioPublicKey, alg: s.bioAlg });
-      if (ok) onUnlock();
-    } catch { /* cancelled or failed → PIN stays available */ }
+      if (ok) { onUnlock(); return; }
+      setBioState('failed');
+    } catch (e) {
+      // NotAllowedError = cancelled / timed out: expected, the PIN is right there.
+      const name = (e as Error)?.name;
+      if (name !== 'NotAllowedError' && name !== 'AbortError') logError(e, 'bio:unlock');
+      setBioState('failed');
+    }
   }, [s.bioCredentialId, s.bioPublicKey, s.bioAlg, onUnlock]);
 
+  // Prompt once, after the lock screen has been painted, and only while the app is visible.
   useEffect(() => {
-    void biometricAvailable().then((a) => {
-      const on = a && !!s.bioCredentialId;
-      setBio(on);
-      if (on && !tried.current) { tried.current = true; void tryBio(); }
-    });
-  }, [s.bioCredentialId, tryBio]);
+    if (!hasBio) return;
+    const start = () => {
+      if (tried.current || document.visibilityState !== 'visible') return;
+      tried.current = true;
+      requestAnimationFrame(() => setTimeout(() => { void tryBio(); }, 0));
+    };
+    start();
+    document.addEventListener('visibilitychange', start);
+    return () => document.removeEventListener('visibilitychange', start);
+  }, [hasBio, tryBio]);
 
   useEffect(() => {
     if (pin.length < s.pinLength || checking) return;
@@ -111,14 +128,16 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
       </div>
       <div className="text-center">
         <h1 className="text-2xl font-bold">{t('app.name')}</h1>
-        <p className={`mt-1 ${error ? 'text-expense font-semibold' : 'text-muted'}`}>{error ? t('lock.wrong') : t('lock.enterPin')}</p>
+        <p className={`mt-1 ${error ? 'text-expense font-semibold' : 'text-muted'}`}>
+          {error ? t('lock.wrong') : bioState === 'pending' ? t('lock.bioPending') : bioState === 'failed' ? t('lock.bioFailed') : t('lock.enterPin')}
+        </p>
       </div>
       <div dir="ltr" className="flex gap-3" aria-label={t('lock.enterPin')}>
         {Array.from({ length: s.pinLength }, (_, i) => (
           <span key={i} className={`size-4 rounded-full ${i < pin.length ? 'bg-teal-700 dark:bg-teal-400' : 'bg-black/15 dark:bg-white/20'}`} />
         ))}
       </div>
-      <PinPad onPress={press} extra={bio ? (
+      <PinPad onPress={press} extra={hasBio ? (
         <button className="flex h-16 items-center justify-center rounded-2xl text-teal-700 active:bg-black/5 dark:text-teal-400" onClick={tryBio} aria-label={t('lock.useBiometric')}>
           <Fingerprint className="size-8" />
         </button>

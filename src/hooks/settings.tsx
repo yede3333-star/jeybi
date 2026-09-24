@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import i18n from '../i18n';
+import i18n, { setLanguage } from '../i18n';
 import { getSettings, type Settings } from '../repo/settings';
 import type { Lang } from '../lib/money';
 
@@ -26,7 +26,7 @@ export function applyUi(lang: Lang, theme: Settings['theme'], fontSize: Settings
   h.classList.toggle('dark', dark);
   h.dataset.font = fontSize;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0b1412' : '#0f766e');
-  if (i18n.language !== lang) void i18n.changeLanguage(lang);
+  if (i18n.language !== lang) void setLanguage(lang);
   try {
     localStorage.setItem('jeybi:ui', JSON.stringify({ lang, theme, fontSize }));
   } catch { /* private mode */ }

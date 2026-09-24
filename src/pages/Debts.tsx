@@ -10,9 +10,10 @@ import { useToast } from '../components/Toast';
 import { useWallets, useNames } from '../hooks/data';
 import { useFmt } from '../hooks/fmt';
 import { addRepayment, createDebt, getDebt, listDebts, removeDebt, summarize, updateDebt, type DebtStatus } from '../repo/debts';
-import { deleteTransaction, ValidationError } from '../repo/transactions';
+import { deleteTransaction } from '../repo/transactions';
 import { parseAmount, minorToKeypad } from '../lib/money';
 import { fromDay, toDay } from '../lib/periodParams';
+import { errorMessage } from '../services/errors';
 
 export default function Debts() {
   const { t } = useTranslation();
@@ -172,7 +173,7 @@ function PaymentForm({ st, onClose }: { st: DebtStatus; onClose: () => void }) {
       toast({ message: t('debts.paymentSaved'), undo });
       onClose();
     } catch (e) {
-      setError(e instanceof ValidationError ? t(`errors.${e.code}`) : String(e));
+      setError(errorMessage(e, t));
     }
   };
   return (
@@ -222,7 +223,7 @@ function DebtForm({ debt, direction, onClose }: { debt?: Debt; direction: DebtDi
       }
       onClose();
     } catch (e) {
-      setError(e instanceof ValidationError ? t(`errors.${e.code}`) : String(e));
+      setError(errorMessage(e, t));
     }
   };
 
