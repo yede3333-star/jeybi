@@ -131,9 +131,9 @@ async function addPhase2Demo(
   const month = monthKey(t0), prev = monthKey(t0 - 32 * DAY);
   for (const m of [month, prev]) {
     const food = c('food', 'expense'), tr = c('transport', 'expense'), fam = c('family', 'expense');
-    if (food) await setBudget(m, food.id, 12_000_00, true);
+    if (food) await setBudget(m, food.id, 16_000_00, true);
     if (tr) await setBudget(m, tr.id, 3_500_00, true);
-    if (fam) await setBudget(m, fam.id, 5_000_00, true);
+    if (fam) await setBudget(m, fam.id, 6_000_00, true);
   }
   const phone = c('phone', 'expense');
   if (phone) await saveRecurring({ name: L('اشتراك الإنترنت', 'Abonnement internet'), type: 'expense', amount: 1_500_00, walletId: bankily.id,

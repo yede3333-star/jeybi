@@ -323,9 +323,13 @@ describe('smart insights', () => {
     for (let d = 0; d < 7; d++) txs.push(e(d, 'food', 500_00)); // +50% on food in the last 7 days
     const r = computeInsights({ txs, categories: cats, totalBalance: 100_000_00, firstTxDate: now - 60 * DAY, now, thresholdPct: 30 });
     // Sep 1..24 = 24 days; daily = 1150 + (500 for the last 7 days)
-    expect(r.avgDaily).toBe(Math.round((24 * 1_150_00 + 7 * 500_00) / 24));
-    expect(r.forecast).toBe(100_000_00 - r.avgDaily! * 6);
+    const exact = (24 * 1_150_00 + 7 * 500_00) / 24;
+    expect(r.avgDaily).toBe(Math.round(exact / 100) * 100); // whole ouguiyas
+    expect(r.forecast).toBe(Math.round((100_000_00 - exact * 6) / 100) * 100);
     expect(r.notes).toEqual([{ categoryId: 'food', last7: 7 * 1_500_00, weeklyAvg: 7 * 1_000_00, diffPct: 50 }]);
+    // an irregular category (2 of 4 weeks) never produces a note
+    const irregular = [...txs.filter((x) => x.splits[0].categoryId !== 'taxi'), e(10, 'taxi', 2_000_00), e(20, 'taxi', 2_000_00)];
+    expect(computeInsights({ txs: irregular, categories: cats, totalBalance: 0, firstTxDate: now - 60 * DAY, now, thresholdPct: 30 }).notes.map((n) => n.categoryId)).toEqual(['food']);
     const high = computeInsights({ txs, categories: cats, totalBalance: 0, firstTxDate: now - 60 * DAY, now, thresholdPct: 60 });
     expect(high.notes).toEqual([]);
   });

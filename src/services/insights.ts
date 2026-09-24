@@ -11,6 +11,10 @@ const MIN_WEEKLY_AVG = 500_00;
 const MIN_DIFF = 300_00;
 const MIN_DAYS_FOR_AVERAGE = 5;
 const MIN_EXPENSES_FOR_AVERAGE = 3;
+/** A category must appear in at least this many of the previous 4 weeks (regular spending). */
+const MIN_ACTIVE_WEEKS = 3;
+/** Shown in whole currency units. */
+const wholeUnits = (minor: number) => Math.round(minor / 100) * 100;
 
 export interface SpendingNote {
   categoryId: ID;
@@ -49,9 +53,10 @@ export function computeInsights(input: {
   const daysOfData = differenceInCalendarDays(now, historyStart) + 1;
   let avgDaily: number | null = null, forecast: number | null = null;
   if (daysOfData >= MIN_DAYS_FOR_AVERAGE && monthExp.length >= MIN_EXPENSES_FOR_AVERAGE) {
-    avgDaily = Math.round(monthTotal / Math.min(daysElapsed, daysOfData));
+    const exact = monthTotal / Math.min(daysElapsed, daysOfData);
     const daysLeft = differenceInCalendarDays(endOfMonth(now), now);
-    forecast = totalBalance - avgDaily * daysLeft;
+    avgDaily = wholeUnits(exact);
+    forecast = wholeUnits(totalBalance - exact * daysLeft);
   }
 
   // --- category notes: last 7 days vs the 4 weeks before
@@ -77,7 +82,7 @@ export function computeInsights(input: {
       }
     }
     for (const [c, arr] of weeks) {
-      if (arr.filter((v) => v > 0).length < 2) continue; // not a regular expense
+      if (arr.filter((v) => v > 0).length < MIN_ACTIVE_WEEKS) continue; // irregular (e.g. clothes): a quiet week is not news
       const avg = arr.reduce((a, v) => a + v, 0) / 4;
       if (avg < MIN_WEEKLY_AVG) continue;
       const last7 = recent.get(c) ?? 0;
