@@ -5,7 +5,7 @@ import { ChartPie, House, List, Plus, Settings as SettingsIcon } from 'lucide-re
 import { SettingsProvider, useSettings } from './hooks/settings';
 import { ToastProvider, useToast } from './components/Toast';
 import { TxEditorProvider, useTxEditor } from './components/TxEditor';
-import { LockGate } from './components/Lock';
+import { LockGate, markUnlocked } from './components/Lock';
 import { initDatabase, requestPersistentStorage } from './repo/init';
 import Home from './pages/Home';
 // Only the home screen is in the startup bundle. Every other page (and its libraries: charts,
@@ -101,9 +101,30 @@ function BackgroundJobs() {
   return null;
 }
 
+/** Shown when a new version has been downloaded; the app keeps working until the user restarts. */
+function UpdateBanner() {
+  const { t } = useTranslation();
+  const [apply, setApply] = useState<((reload: boolean) => Promise<void>) | null>(null);
+  useEffect(() => {
+    const on = (e: Event) => setApply(() => (e as CustomEvent).detail);
+    window.addEventListener('jeybi:update-ready', on);
+    return () => window.removeEventListener('jeybi:update-ready', on);
+  }, []);
+  if (!apply) return null;
+  return (
+    <div className="fixed inset-x-0 top-0 z-40 mx-auto flex max-w-md items-center gap-3 bg-teal-800 px-4 pb-2 text-sm text-white" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
+      <span className="flex-1">{t('app.updateReady')}</span>
+      <button className="rounded-lg bg-white/15 px-3 py-1.5 font-bold" onClick={() => { markUnlocked(); void apply(true); }}>
+        {t('app.restart')}
+      </button>
+    </div>
+  );
+}
+
 function Shell() {
   return (
     <HashRouter>
+      <UpdateBanner />
       <ScrollTop />
       <BackgroundJobs />
       <main className="mx-auto min-h-dvh max-w-md pb-40">

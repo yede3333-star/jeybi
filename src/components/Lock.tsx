@@ -5,16 +5,24 @@ import { useSettings } from '../hooks/settings';
 import { verifyBiometric, verifyPin, biometricAvailable, createPinHash } from '../services/security';
 import { setSettings } from '../repo/settings';
 
-// Set when the user has just proven they know the PIN (e.g. created it during onboarding),
-// so the gate doesn't immediately ask for it again.
-let unlockedAt = 0;
-export const markUnlocked = () => { unlockedAt = Date.now(); };
+// Set when the user has just proven they know the PIN (created it during onboarding, or unlocked),
+// so the gate doesn't ask again right away. Kept in sessionStorage (this tab only) because an app
+// update makes the page reload automatically right after opening — without this, the user would be
+// asked for the PIN twice.
+const UNLOCK_KEY = 'jeybi:unlockedAt';
+const RECENT_MS = 60_000;
+export const markUnlocked = () => {
+  try { sessionStorage.setItem(UNLOCK_KEY, String(Date.now())); } catch { /* private mode */ }
+};
+const recentlyUnlocked = () => {
+  try { return Date.now() - Number(sessionStorage.getItem(UNLOCK_KEY) ?? 0) < RECENT_MS; } catch { return false; }
+};
 
 /** Keeps the app locked behind the PIN on launch and after the configured idle time. */
 export function LockGate({ children }: { children: ReactNode }) {
   const s = useSettings();
   const hasPin = !!s.pinHash;
-  const [locked, setLocked] = useState(hasPin && Date.now() - unlockedAt > 60_000);
+  const [locked, setLocked] = useState(hasPin && !recentlyUnlocked());
   const lastActive = useRef(Date.now());
   const hiddenAt = useRef<number | null>(null);
 
@@ -44,7 +52,7 @@ export function LockGate({ children }: { children: ReactNode }) {
     };
   }, [hasPin, s.lockTimeoutMin]);
 
-  if (locked) return <LockScreen onUnlock={() => { lastActive.current = Date.now(); setLocked(false); }} />;
+  if (locked) return <LockScreen onUnlock={() => { lastActive.current = Date.now(); markUnlocked(); setLocked(false); }} />;
   return <>{children}</>;
 }
 

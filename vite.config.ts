@@ -14,7 +14,10 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // prompt: a new version waits and activates when the app is closed and reopened (or when the
+      // user taps "restart" in the in-app banner). Never reloads the page mid-use (autoUpdate did,
+      // which could lose a half-typed entry and asked for the PIN twice).
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'icons/*.png'],
       manifest: {
         name: 'جيبي · Jeybi',

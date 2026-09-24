@@ -2,7 +2,7 @@ import type { Dict } from './ar';
 
 // Typed against the Arabic dictionary so a missing key fails the build.
 const fr: Dict = {
-  app: { name: 'Jeybi' },
+  app: { name: 'Jeybi', updateReady: 'Nouvelle version prête — appliquée à la prochaine ouverture', restart: 'Redémarrer maintenant' },
   nav: { home: 'Accueil', transactions: 'Opérations', reports: 'Rapports', settings: 'Réglages' },
   common: {
     today: 'Aujourd’hui', yesterday: 'Hier', unknown: 'Inconnu', close: 'Fermer', back: 'Retour', undo: 'Annuler',

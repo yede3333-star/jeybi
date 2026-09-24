@@ -1,5 +1,5 @@
 const ar = {
-  app: { name: 'جيبي' },
+  app: { name: 'جيبي', updateReady: 'نسخة جديدة جاهزة — تُطبَّق عند إعادة فتح التطبيق', restart: 'إعادة التشغيل الآن' },
   nav: { home: 'الرئيسية', transactions: 'العمليات', reports: 'التقارير', settings: 'الإعدادات' },
   common: {
     today: 'اليوم', yesterday: 'أمس', unknown: 'غير معروف', close: 'إغلاق', back: 'رجوع', undo: 'تراجع',
