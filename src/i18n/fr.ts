@@ -161,7 +161,7 @@ const fr: Dict = {
     copied: '{{n}} budget(s) copié(s)', nothingToCopy: 'Aucun nouveau budget à copier', empty: 'Aucun budget ce mois-ci',
     emptyHint: 'Fixez un plafond mensuel par catégorie (ex. 3000 pour le transport) ; alerte à 80 % et 100 %.',
     left: 'Reste {{amount}}', over: 'Dépassé de {{amount}}', edit: 'Budget d’une catégorie', monthlyLimit: 'Plafond mensuel', zeroRemoves: '0 supprime le budget.',
-    vsActual: 'Budgets et dépenses réelles', alert80: 'Budget {{name}} presque atteint (80 %)', alert100: 'Budget {{name}} dépassé',
+    vsActual: 'Budgets et dépenses réelles', alert80: 'Budget {{name}} presque atteint', alert100: 'Budget {{name}} dépassé',
   },
   recurring: {
     title: 'Opérations récurrentes', new: 'Nouvelle récurrence', edit: 'Modifier la récurrence', name: 'Nom', namePlaceholder: 'ex. : Loyer',

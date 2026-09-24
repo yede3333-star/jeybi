@@ -150,7 +150,7 @@ const ar = {
     notIncomeHint: 'الديون تُحرّك المحافظ لكنها لا تُحسب دخلًا ولا مصروفًا في التقارير.',
     managePrincipal: 'هذه حركة أصل الدين؛ عدّلها أو احذفها من صفحة الديون.',
     paid: 'المُسدَّد', type: 'النوع', status: 'الحالة',
-    label: { lentTo: 'سلف لـ {{person}}', repaidBy: 'سداد من {{person}}', borrowedFrom: 'اقتراض من {{person}}', repaidTo: 'سداد لـ {{person}}' },
+    label: { lentTo: 'سلفة إلى {{person}}', repaidBy: 'سداد من {{person}}', borrowedFrom: 'اقتراض من {{person}}', repaidTo: 'سداد إلى {{person}}' },
     inPeriod: { lent: 'أعطيت دينًا', received: 'استلمت سدادًا', borrowed: 'اقترضت', paid: 'سدّدت' },
   },
   budgets: {
@@ -158,7 +158,7 @@ const ar = {
     copied: 'نُسخت {{n}} ميزانية', nothingToCopy: 'لا توجد ميزانيات جديدة للنسخ', empty: 'لا توجد ميزانيات لهذا الشهر',
     emptyHint: 'حدّد سقفًا شهريًا لكل تصنيف (مثلًا 3000 للنقل) وستنبَّه عند 80% و100%.',
     left: 'باقٍ {{amount}}', over: 'تجاوز بـ {{amount}}', edit: 'ميزانية تصنيف', monthlyLimit: 'الحد الشهري', zeroRemoves: 'ضع 0 لحذف الميزانية.',
-    vsActual: 'الميزانيات مقابل الفعلي', alert80: 'اقتربت من ميزانية {{name}} (80%)', alert100: 'تجاوزت ميزانية {{name}}',
+    vsActual: 'الميزانيات مقابل الفعلي', alert80: 'اقتربت من سقف ميزانية {{name}}', alert100: 'تجاوزت ميزانية {{name}}',
   },
   recurring: {
     title: 'العمليات المتكررة', new: 'عملية متكررة جديدة', edit: 'تعديل العملية المتكررة', name: 'الاسم', namePlaceholder: 'مثلًا: الإيجار',
