@@ -47,7 +47,7 @@ const fr: Dict = {
     },
   },
   filters: {
-    title: 'Filtres', searchPlaceholder: 'Rechercher dans les notes et étiquettes…', clearAll: 'Tout effacer', count: 'Nombre',
+    title: 'Filtres', searchPlaceholder: 'Note, étiquette, catégorie, portefeuille ou montant…', clearAll: 'Tout effacer', count: 'Nombre',
     noResults: 'Aucun résultat', show: 'Voir les résultats', type: 'Type', period: 'Période', from: 'Du', to: 'Au',
     amount: 'Montant', exact: 'Valeur exacte', range: 'Intervalle', wallets: 'Portefeuilles', categories: 'Catégories',
     addCategory: 'Ajouter une catégorie…', tags: 'Étiquettes',

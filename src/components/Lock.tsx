@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next';
 import { Delete, Fingerprint, Lock as LockIcon } from 'lucide-react';
 import { useSettings } from '../hooks/settings';
-import { verifyBiometric, verifyPin, biometricAvailable } from '../services/security';
+import { verifyBiometric, verifyPin, biometricAvailable, createPinHash } from '../services/security';
+import { setSettings } from '../repo/settings';
 
 // Set when the user has just proven they know the PIN (e.g. created it during onboarding),
 // so the gate doesn't immediately ask for it again.
@@ -77,8 +78,15 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
     setChecking(true);
     void verifyPin(pin, s).then((ok) => {
       setChecking(false);
-      if (ok) onUnlock();
-      else { setError(true); setPin(''); navigator.vibrate?.(150); }
+      if (!ok) { setError(true); setPin(''); navigator.vibrate?.(150); return; }
+      // One-time upgrade of PINs created with the old fixed 210k iterations (slow on phones).
+      if (!s.pinCalibrated) {
+        setTimeout(() => {
+          void createPinHash(pin).then(({ hash, salt, iterations }) =>
+            setSettings({ pinHash: hash, pinSalt: salt, pinIterations: iterations, pinCalibrated: true }));
+        }, 1500);
+      }
+      onUnlock();
     });
   }, [pin, s, onUnlock, checking]);
 

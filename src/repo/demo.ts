@@ -2,6 +2,7 @@ import { addDays, startOfDay, subMonths } from 'date-fns';
 import { db } from '../data/db';
 import type { Category, Wallet } from '../data/types';
 import { createTransaction, type TxInput } from './transactions';
+import { rebuildFlows } from './flows';
 
 /** Deterministic PRNG so the demo looks the same every time. */
 function rng(seed: number) {
@@ -92,10 +93,11 @@ export async function addDemoData(lang: 'ar' | 'fr' = 'ar', now = Date.now()): P
 }
 
 export async function clearDemoData(): Promise<number> {
-  return db.transaction('rw', db.transactions, db.audit, async () => {
+  return db.transaction('rw', db.transactions, db.audit, db.meta, async () => {
     const ids = await db.transactions.filter((t) => !!t.demo).primaryKeys();
     await db.transactions.bulkDelete(ids);
     for (const id of ids) await db.audit.where('txId').equals(id).delete();
+    await rebuildFlows();
     return ids.length;
   });
 }

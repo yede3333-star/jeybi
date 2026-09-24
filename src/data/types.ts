@@ -56,6 +56,8 @@ export interface Transaction {
   transferId?: ID;
   /** On a transfer: its linked fee expense. */
   feeTxId?: ID;
+  /** Set when created from a quick template (lets search find it by the template name). */
+  templateId?: ID;
   currency: string;
   demo?: boolean;
   createdAt: number;

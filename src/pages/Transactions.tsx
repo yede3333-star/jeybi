@@ -3,7 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import type { TxType } from '../data/types';
-import { useNames, useTags, useTransactions } from '../hooks/data';
+import { useNames, useTags, useTemplates, useTransactions } from '../hooks/data';
+import { buildSearchNames } from '../services/search';
+import i18n from '../i18n';
 import { useFmt } from '../hooks/fmt';
 import { PageHeader, Sheet, Empty } from '../components/ui';
 import { TxRow, groupByDay } from '../components/TxRow';
@@ -50,11 +52,18 @@ export default function Transactions() {
   const txs = useTransactions();
   const { categories, wallets, walletName, categoryName } = useNames();
   const [f, setF] = useFilterParams();
+  const templates = useTemplates();
+  // Names as displayed, in both languages, so a search finds "بقالة" and "Épicerie" alike.
+  const searchNames = useMemo(() => {
+    const ar = i18n.getFixedT('ar'), fr = i18n.getFixedT('fr');
+    return buildSearchNames(categories ?? [], wallets ?? [], templates ?? [], (k) => [ar(`sys.${k}`), fr(`sys.${k}`)]);
+  }, [categories, wallets, templates]);
   const [showFilters, setShowFilters] = useState(false);
   const [limit, setLimit] = useState(PAGE);
 
   const filter: TxFilter = useMemo(() => ({
     text: f.q || undefined,
+    names: searchNames,
     amountMin: f.min ? parseAmount(f.min) ?? undefined : undefined,
     amountMax: f.max ? parseAmount(f.max) ?? undefined : undefined,
     start: f.from ? fromDay(f.from) : undefined,
@@ -63,7 +72,7 @@ export default function Transactions() {
     categoryIds: f.c.length ? expandCategoryIds(f.c, categories ?? []) : undefined,
     types: f.type,
     tags: f.tag,
-  }), [f.q, f.min, f.max, f.from, f.to, f.w.join(), f.c.join(), f.type.join(), f.tag.join(), categories]);
+  }), [f.q, f.min, f.max, f.from, f.to, f.w.join(), f.c.join(), f.type.join(), f.tag.join(), categories, searchNames]);
 
   const rows = useMemo(() => (txs ? filterTransactions(txs, filter) : []), [txs, filter]);
   const sums = useMemo(() => sumFiltered(rows), [rows]);

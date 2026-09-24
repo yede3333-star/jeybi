@@ -22,6 +22,8 @@ export interface Settings {
   bioCredentialId: string | null;
   bioPublicKey: string | null;
   bioAlg: number | null;
+  /** False for PINs hashed before per-device calibration; re-hashed after the next unlock. */
+  pinCalibrated: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -43,16 +45,21 @@ export const DEFAULT_SETTINGS: Settings = {
   bioCredentialId: null,
   bioPublicKey: null,
   bioAlg: null,
+  pinCalibrated: false,
 };
 
 /** Keys that are device-specific and never travel inside a backup file. */
 export const DEVICE_ONLY_KEYS: Array<keyof Settings> = [
   'pinHash', 'pinSalt', 'pinIterations', 'pinLength', 'bioCredentialId', 'bioPublicKey', 'bioAlg',
-  'lastWalletId', 'backupBannerSnoozedAt',
+  'pinCalibrated', 'lastWalletId', 'backupBannerSnoozedAt',
 ];
 
+const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
+
 export async function getSettings(): Promise<Settings> {
-  const rows = await db.meta.toArray();
+  // Only the settings keys: other meta rows (e.g. the balance cache) change often and must not
+  // wake up every settings subscriber.
+  const rows = await db.meta.where('key').anyOf(SETTING_KEYS).toArray();
   const s: Record<string, unknown> = { ...DEFAULT_SETTINGS };
   for (const r of rows) if (r.key in DEFAULT_SETTINGS) s[r.key] = r.value;
   return s as unknown as Settings;

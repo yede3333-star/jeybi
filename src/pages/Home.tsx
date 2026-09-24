@@ -1,8 +1,7 @@
-import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { ArrowDownLeft, ArrowUpRight, ChevronLeft, CloudUpload, Plus, Zap } from 'lucide-react';
-import { useBalances, useNames, useTemplates, useTransactions, useWallets } from '../hooks/data';
+import { useBalances, useHasTransactions, useNames, usePeriodTotals, useRecent, useTemplates, useWallets } from '../hooks/data';
 import { useFmt } from '../hooks/fmt';
 import { useSettings } from '../hooks/settings';
 import { IconBadge } from '../components/Icon';
@@ -10,7 +9,6 @@ import { TxRow } from '../components/TxRow';
 import { Empty } from '../components/ui';
 import { useToast } from '../components/Toast';
 import { useTxEditor } from '../components/TxEditor';
-import { totalsFor } from '../services/reports';
 import { periodFor } from '../lib/period';
 import { applyTemplate } from '../repo/templates';
 import { setSettings } from '../repo/settings';
@@ -20,10 +18,10 @@ const DAY = 86_400_000;
 function BackupBanner() {
   const { t } = useTranslation();
   const s = useSettings();
-  const txs = useTransactions();
+  const hasTx = useHasTransactions();
   const since = s.lastBackupAt ?? s.firstRunAt;
   const snoozed = s.backupBannerSnoozedAt && Date.now() - s.backupBannerSnoozedAt < DAY;
-  if (!txs?.length || !since || Date.now() - since < 7 * DAY || snoozed) return null;
+  if (!hasTx || !since || Date.now() - since < 7 * DAY || snoozed) return null;
   const days = Math.floor((Date.now() - since) / DAY);
   return (
     <div className="mx-4 mb-3 flex items-start gap-3 rounded-2xl bg-amber-100 p-3 text-amber-950 dark:bg-amber-400/15 dark:text-amber-200">
@@ -48,18 +46,17 @@ export default function Home() {
   const toast = useToast();
   const { openNew } = useTxEditor();
   const wallets = useWallets();
-  const txs = useTransactions();
+  const recent = useRecent(8);
   const templates = useTemplates();
   const balances = useBalances();
   const { nameOf, category } = useNames();
 
-  const stats = useMemo(() => {
-    if (!txs) return null;
-    return {
-      today: totalsFor(txs, periodFor('day', Date.now(), s.weekStartsOn)),
-      month: totalsFor(txs, periodFor('month', Date.now(), s.weekStartsOn)),
-    };
-  }, [txs, s.weekStartsOn]);
+  // Period bounds only change when the day changes; recomputed on each render is cheap.
+  const day = periodFor('day', Date.now(), s.weekStartsOn);
+  const month = periodFor('month', Date.now(), s.weekStartsOn);
+  const today = usePeriodTotals(day.start, day.end);
+  const monthTotals = usePeriodTotals(month.start, month.end);
+  const stats = today && monthTotals ? { today, month: monthTotals } : null;
 
   const runTemplate = async (id: string) => {
     const tpl = templates?.find((x) => x.id === id);
@@ -143,11 +140,11 @@ export default function Home() {
         <Link to="/transactions" className="flex items-center gap-0.5 text-sm font-semibold text-teal-700 dark:text-teal-400">{t('common.seeAll')}{Chevron}</Link>
       </div>
       <div className="card mx-4 divide-y divide-line overflow-hidden">
-        {txs && txs.length === 0 && (
+        {recent && recent.length === 0 && (
           <Empty title={t('home.emptyTitle')} hint={t('home.emptyHint')}
             action={<button className="btn-primary mt-2" onClick={() => openNew()}><Plus className="size-5" />{t('tx.new')}</button>} />
         )}
-        {txs?.slice(0, 8).map((tx) => (
+        {recent?.map((tx) => (
           <TxRow key={tx.id} tx={tx} fmt={fmt} showDate onClick={() => nav(`/tx/${tx.id}`)} />
         ))}
       </div>

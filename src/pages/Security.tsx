@@ -6,7 +6,7 @@ import { PinPad } from '../components/Lock';
 import { useToast } from '../components/Toast';
 import { useSettings } from '../hooks/settings';
 import { setSettings } from '../repo/settings';
-import { biometricAvailable, hashPin, registerBiometric, verifyPin } from '../services/security';
+import { biometricAvailable, createPinHash, registerBiometric, verifyPin } from '../services/security';
 
 /** Two-step PIN creation (enter, confirm). 4 to 6 digits. */
 export function PinSetup({ onDone }: { onDone: () => void }) {
@@ -27,8 +27,8 @@ export function PinSetup({ onDone }: { onDone: () => void }) {
     if (first === null) { setFirst(pin); setPin(''); return; }
     if (pin !== first) { setError(t('security.mismatch')); setFirst(null); setPin(''); return; }
     setBusy(true);
-    const { hash, salt, iterations } = await hashPin(pin);
-    await setSettings({ pinHash: hash, pinSalt: salt, pinIterations: iterations, pinLength: pin.length });
+    const { hash, salt, iterations } = await createPinHash(pin);
+    await setSettings({ pinHash: hash, pinSalt: salt, pinIterations: iterations, pinLength: pin.length, pinCalibrated: true });
     setBusy(false);
     onDone();
   };

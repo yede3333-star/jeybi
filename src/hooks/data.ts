@@ -6,7 +6,7 @@ import { listWallets } from '../repo/wallets';
 import { listCategories } from '../repo/categories';
 import { listActive, allTags } from '../repo/transactions';
 import { listTemplates } from '../repo/templates';
-import { walletBalances } from '../services/reports';
+import { getBalances, hasTransactions, recentTransactions, totalsBetween } from '../repo/summary';
 
 export const useWallets = () => useLiveQuery(listWallets, []);
 export const useCategories = () => useLiveQuery(listCategories, []);
@@ -14,17 +14,16 @@ export const useTransactions = () => useLiveQuery(listActive, []);
 export const useTemplates = () => useLiveQuery(listTemplates, []);
 export const useTags = () => useLiveQuery(allTags, [], [] as string[]);
 
-export function useBalances() {
-  const wallets = useWallets();
-  const txs = useTransactions();
-  return useMemo(() => {
-    if (!wallets || !txs) return undefined;
-    const m = walletBalances(wallets, txs);
-    let total = 0;
-    for (const v of m.values()) total += v;
-    return { byWallet: m, total };
-  }, [wallets, txs]);
+/** Balances from the cached per-wallet flows — does not read every transaction. */
+export const useBalances = () => useLiveQuery(getBalances, []);
+
+/** Today's and this month's totals via indexed date ranges. */
+export function usePeriodTotals(start: number, end: number) {
+  return useLiveQuery(() => totalsBetween(start, end), [start, end]);
 }
+
+export const useRecent = (n: number) => useLiveQuery(() => recentTransactions(n), [n]);
+export const useHasTransactions = () => useLiveQuery(hasTransactions, []);
 
 /** Display names for built-in (translated) and user-created wallets/categories. */
 export function useNames() {

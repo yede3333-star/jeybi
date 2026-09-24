@@ -1,4 +1,5 @@
 // Pure financial calculations. No database access here — everything is testable in isolation.
+import { matchQuery, parseQuery, type SearchNames } from './search';
 import type { Category, CategoryKind, ID, Transaction, Wallet } from '../data/types';
 import { bucketsFor, inPeriod, type Bucket, type Period } from '../lib/period';
 
@@ -179,6 +180,8 @@ export function buildReport(
 
 export interface TxFilter {
   text?: string;
+  /** Display names used by the text search (categories, wallets, templates). */
+  names?: SearchNames;
   amountMin?: number;
   amountMax?: number;
   start?: number;
@@ -195,7 +198,7 @@ export interface TxFilter {
  * toward the filter (only the matching split parts for split transactions).
  */
 export function filterTransactions(txs: Transaction[], f: TxFilter): Array<{ tx: Transaction; counted: number }> {
-  const text = f.text?.trim().toLowerCase().replace(/^#/, '');
+  const query = f.text ? parseQuery(f.text) : null;
   const cats = f.categoryIds?.length ? new Set(f.categoryIds) : null;
   const wallets = f.walletIds?.length ? new Set(f.walletIds) : null;
   const tags = f.tags?.length ? f.tags : null;
@@ -207,10 +210,21 @@ export function filterTransactions(txs: Transaction[], f: TxFilter): Array<{ tx:
     if (f.types?.length && !f.types.includes(t.type)) continue;
     if (wallets && !wallets.has(t.walletId) && !(t.toWalletId && wallets.has(t.toWalletId))) continue;
     if (tags && !tags.every((tg) => t.tags.includes(tg))) continue;
-    if (f.amountMin != null && t.amount < f.amountMin) continue;
-    if (f.amountMax != null && t.amount > f.amountMax) continue;
-    if (text && !t.note.toLowerCase().includes(text) && !t.tags.some((tg) => tg.toLowerCase().includes(text))) continue;
     let counted = t.amount;
+    if (f.amountMin != null || f.amountMax != null) {
+      // The whole amount or any split part may fall in the range.
+      const inRange = (v: number) => (f.amountMin == null || v >= f.amountMin) && (f.amountMax == null || v <= f.amountMax);
+      if (!inRange(t.amount)) {
+        const parts = t.splits.filter((s) => inRange(s.amount));
+        if (!parts.length) continue;
+        counted = parts.reduce((a, s) => a + s.amount, 0);
+      }
+    }
+    if (query) {
+      const hit = matchQuery(t, query, f.names);
+      if (hit == null) continue;
+      counted = Math.min(counted, hit);
+    }
     if (cats) {
       const parts = t.splits.filter((s) => cats.has(s.categoryId));
       if (!parts.length) continue;

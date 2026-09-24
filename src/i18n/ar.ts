@@ -44,7 +44,7 @@ const ar = {
     },
   },
   filters: {
-    title: 'الفلاتر', searchPlaceholder: 'ابحث في الملاحظات والوسوم…', clearAll: 'مسح الكل', count: 'العدد',
+    title: 'الفلاتر', searchPlaceholder: 'ابحث: ملاحظة، وسم، تصنيف، محفظة أو مبلغ…', clearAll: 'مسح الكل', count: 'العدد',
     noResults: 'لا توجد نتائج', show: 'عرض النتائج', type: 'النوع', period: 'الفترة', from: 'من', to: 'إلى',
     amount: 'المبلغ', exact: 'قيمة محددة', range: 'مجال', wallets: 'المحافظ', categories: 'التصنيفات',
     addCategory: 'أضف تصنيفًا…', tags: 'الوسوم',

@@ -27,6 +27,32 @@ function random(n: number): Uint8Array<ArrayBuffer> {
   return a;
 }
 
+/**
+ * PBKDF2 cost is calibrated on the device itself so one verification takes ~`targetMs`
+ * (a fixed 210k iterations took 1–2 s on mid-range phones). Note: a 4–6 digit PIN has at most
+ * 10^6 combinations, so the hash protects against casual reading of the stored value, not a
+ * determined offline attack; the real protection is the phone's own lock.
+ */
+export const PIN_ITERATIONS = { min: 20_000, max: 600_000, targetMs: 150 };
+
+export async function calibrateIterations(targetMs = PIN_ITERATIONS.targetMs): Promise<number> {
+  const probe = 40_000;
+  const key = await crypto.subtle.importKey('raw', enc.encode('0000'), 'PBKDF2', false, ['deriveBits']);
+  // Warm-up: the first derivation carries one-off setup cost that would make the device look
+  // slower than it is (it under-estimated iterations by ~3x in measurements).
+  await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: random(16), iterations: 1000 }, key, 256);
+  const t = performance.now();
+  await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: random(16), iterations: probe }, key, 256);
+  const ms = Math.max(1, performance.now() - t);
+  const n = Math.round((probe * targetMs) / ms / 1000) * 1000;
+  return Math.min(PIN_ITERATIONS.max, Math.max(PIN_ITERATIONS.min, n));
+}
+
+/** Hash for a new PIN, with iterations calibrated for this device. */
+export async function createPinHash(pin: string) {
+  return hashPin(pin, undefined, await calibrateIterations());
+}
+
 export async function hashPin(pin: string, saltB64?: string, iterations = 210000) {
   const salt = saltB64 ? b64.decode(saltB64) : random(16);
   const key = await crypto.subtle.importKey('raw', enc.encode(pin), 'PBKDF2', false, ['deriveBits']);

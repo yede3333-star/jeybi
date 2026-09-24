@@ -47,6 +47,6 @@ export async function applyTemplate(t: Template) {
   const walletId = usable(t.walletId) ? t.walletId! : usable(s.lastWalletId) ? s.lastWalletId! : wallets.find((w) => !w.archived)?.id;
   if (!walletId) throw new Error('noWallet');
   return createTransaction({
-    type: t.type, amount: t.amount, walletId, categoryId: t.categoryId, date: Date.now(), note: t.note, tags: t.tags,
+    type: t.type, amount: t.amount, walletId, categoryId: t.categoryId, date: Date.now(), note: t.note, tags: t.tags, templateId: t.id,
   });
 }

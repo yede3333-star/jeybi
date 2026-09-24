@@ -1,6 +1,7 @@
 import { db } from '../data/db';
 import type { AuditEntry, Category, Template, Transaction, Wallet } from '../data/types';
 import { DEVICE_ONLY_KEYS, getSettings, setSettings, type Settings } from './settings';
+import { rebuildFlows } from './flows';
 
 export const BACKUP_FORMAT = 1;
 
@@ -105,6 +106,7 @@ export async function restoreBackup(file: BackupFile): Promise<void> {
     for (const k of DEVICE_ONLY_KEYS) (device as Record<string, unknown>)[k] = keep[k];
     await setSettings({ ...d.settings, ...device, onboarded: true, lastBackupAt: file.exportedAt });
     await db.meta.put({ key: 'seeded', value: true });
+    await rebuildFlows();
   });
 }
 

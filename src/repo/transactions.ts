@@ -4,6 +4,7 @@ import { uid } from '../lib/id';
 import { diffTx, log } from './audit';
 import { getSettings, setSettings } from './settings';
 import { ensureFeesCategory } from './categories';
+import { deleteTxRow, patchTx, putTx } from './flows';
 
 export interface TxInput {
   type: TxType;
@@ -19,6 +20,7 @@ export interface TxInput {
   receiptId?: ID | null;
   /** Transfers only: optional fee, recorded as a separate expense in the "fees" category. */
   fee?: number;
+  templateId?: ID;
   demo?: boolean;
 }
 
@@ -68,6 +70,7 @@ function build(input: TxInput, splits: Split[], base: Partial<Transaction>, now:
     tags: [...new Set((input.tags ?? []).map(normalizeTag).filter(Boolean))],
     ...(input.receiptId ? { receiptId: input.receiptId } : {}),
     ...(base.transferId ? { transferId: base.transferId } : {}),
+    ...(input.templateId ?? base.templateId ? { templateId: input.templateId ?? base.templateId } : {}),
     currency: base.currency ?? currency,
     ...(input.demo || base.demo ? { demo: true } : {}),
     createdAt: base.createdAt ?? now,
@@ -108,10 +111,10 @@ export async function createTransaction(input: TxInput): Promise<{ tx: Transacti
       const fees = await ensureFeesCategory();
       const f = feeTx(tx, input.fee, fees.id, now);
       tx.feeTxId = f.id;
-      await db.transactions.put(f);
+      await putTx(f);
       await log(f.id, 'create', undefined, now);
     }
-    await db.transactions.put(tx);
+    await putTx(tx);
     await log(tx.id, 'create', undefined, now);
     if (!input.demo) await setSettings({ lastWalletId: tx.walletId });
     return tx;
@@ -148,16 +151,16 @@ export async function updateTransaction(id: ID, input: TxInput): Promise<{ tx: T
       if (beforeFee) {
         const ch = diffTx(beforeFee, f);
         if (ch.length || beforeFee.deletedAt != null) {
-          await db.transactions.put(f);
+          await putTx(f);
           await log(f.id, beforeFee.deletedAt != null ? 'restore' : 'update', ch, now);
         }
       } else {
         createdFeeId = f.id;
-        await db.transactions.put(f);
+        await putTx(f);
         await log(f.id, 'create', undefined, now);
       }
     } else if (beforeFee && beforeFee.deletedAt == null) {
-      await db.transactions.put({ ...beforeFee, deletedAt: now, updatedAt: now });
+      await putTx({ ...beforeFee, deletedAt: now, updatedAt: now });
       await log(beforeFee.id, 'delete', undefined, now);
       tx.feeTxId = beforeFee.id;
     } else if (beforeFee) {
@@ -165,7 +168,7 @@ export async function updateTransaction(id: ID, input: TxInput): Promise<{ tx: T
     }
 
     const changes = diffTx(before, tx);
-    await db.transactions.put(tx);
+    await putTx(tx);
     if (changes.length) await log(id, 'update', changes, now);
 
     const undo: Undo = async () => {
@@ -173,13 +176,13 @@ export async function updateTransaction(id: ID, input: TxInput): Promise<{ tx: T
         const current = await db.transactions.get(id);
         if (current) {
           const back = { ...before, updatedAt: Date.now() };
-          await db.transactions.put(back);
+          await putTx(back);
           const ch = diffTx(current, back);
           if (ch.length) await log(id, 'update', ch);
         }
-        if (beforeFee) await db.transactions.put(beforeFee);
+        if (beforeFee) await putTx(beforeFee);
         if (createdFeeId) {
-          await db.transactions.delete(createdFeeId);
+          await deleteTxRow(createdFeeId);
           await db.audit.where('txId').equals(createdFeeId).delete();
         }
       });
@@ -194,12 +197,12 @@ export async function deleteTransaction(id: ID): Promise<{ undo: Undo }> {
   await db.transaction('rw', TABLES(), async () => {
     const tx = await db.transactions.get(id);
     if (!tx || tx.deletedAt != null) return;
-    await db.transactions.update(id, { deletedAt: now, updatedAt: now });
+    await patchTx(id, { deletedAt: now, updatedAt: now });
     await log(id, 'delete', undefined, now);
     if (tx.feeTxId) {
       const f = await db.transactions.get(tx.feeTxId);
       if (f && f.deletedAt == null) {
-        await db.transactions.update(f.id, { deletedAt: now, updatedAt: now });
+        await patchTx(f.id, { deletedAt: now, updatedAt: now });
         await log(f.id, 'delete', undefined, now);
       }
     }
@@ -217,12 +220,12 @@ export async function restoreTransaction(id: ID, deletedAt?: number): Promise<vo
     const tx = await db.transactions.get(id);
     if (!tx || tx.deletedAt == null) return;
     const when = tx.deletedAt;
-    await db.transactions.update(id, { deletedAt: null, updatedAt: now });
+    await patchTx(id, { deletedAt: null, updatedAt: now });
     await log(id, 'restore', undefined, now);
     if (tx.feeTxId) {
       const f = await db.transactions.get(tx.feeTxId);
       if (f && f.deletedAt != null && f.deletedAt === (deletedAt ?? when)) {
-        await db.transactions.update(f.id, { deletedAt: null, updatedAt: now });
+        await patchTx(f.id, { deletedAt: null, updatedAt: now });
         await log(f.id, 'restore', undefined, now);
       }
     }
@@ -238,12 +241,12 @@ export async function purgeTransaction(id: ID): Promise<void> {
     for (const tid of ids) {
       const t = await db.transactions.get(tid);
       if (t?.receiptId) await db.receipts.delete(t.receiptId);
-      await db.transactions.delete(tid);
+      await deleteTxRow(tid);
       await db.audit.where('txId').equals(tid).delete();
     }
     if (tx.transferId) {
       const parent = await db.transactions.get(tx.transferId);
-      if (parent?.feeTxId === id) await db.transactions.update(parent.id, { feeTxId: undefined });
+      if (parent?.feeTxId === id) await patchTx(parent.id, { feeTxId: undefined });
     }
   });
 }

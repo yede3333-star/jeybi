@@ -8,21 +8,28 @@ import { TxEditorProvider, useTxEditor } from './components/TxEditor';
 import { LockGate } from './components/Lock';
 import { initDatabase, requestPersistentStorage } from './repo/init';
 import Home from './pages/Home';
-import Transactions from './pages/Transactions';
-import TxDetail from './pages/TxDetail';
-import Onboarding from './pages/Onboarding';
-import Settings from './pages/Settings';
-import { WalletsPage, CategoriesPage, TemplatesPage } from './pages/Manage';
-import Trash from './pages/Trash';
-import Security from './pages/Security';
-import Backup from './pages/Backup';
-
-// Reports pull in charts and export libraries: load them on demand (still precached for offline use).
+// Only the home screen is in the startup bundle. Every other page (and its libraries: charts,
+// Excel, PDF…) is a separate chunk loaded on first visit — all still precached for offline use.
+const Transactions = lazy(() => import('./pages/Transactions'));
+const TxDetail = lazy(() => import('./pages/TxDetail'));
+const Onboarding = lazy(() => import('./pages/Onboarding'));
+const Settings = lazy(() => import('./pages/Settings'));
+const WalletsPage = lazy(() => import('./pages/Manage').then((m) => ({ default: m.WalletsPage })));
+const CategoriesPage = lazy(() => import('./pages/Manage').then((m) => ({ default: m.CategoriesPage })));
+const TemplatesPage = lazy(() => import('./pages/Manage').then((m) => ({ default: m.TemplatesPage })));
+const Trash = lazy(() => import('./pages/Trash'));
+const Security = lazy(() => import('./pages/Security'));
+const Backup = lazy(() => import('./pages/Backup'));
 const Reports = lazy(() => import('./pages/Reports'));
 const WhereMoney = lazy(() => import('./pages/WhereMoney'));
 
+/** Same look as the static shell in index.html, so there is no flash between them. */
 function Splash() {
-  return <div className="min-h-dvh bg-page" />;
+  return (
+    <div className="flex min-h-dvh items-center justify-center bg-page">
+      <img src="icons/icon-192.png" alt="" className="size-20 rounded-3xl opacity-90" />
+    </div>
+  );
 }
 
 function BottomNav() {
@@ -102,7 +109,7 @@ function Gate() {
   useEffect(() => {
     if (s.onboarded) void requestPersistentStorage();
   }, [s.onboarded]);
-  if (!s.onboarded) return <Onboarding />;
+  if (!s.onboarded) return <Suspense fallback={<Splash />}><Onboarding /></Suspense>;
   return (
     <LockGate>
       <TxEditorProvider>
