@@ -1,6 +1,6 @@
 # تقدّم العمل — جيبي / Jeybi (المرحلة الأولى)
 
-آخر تحديث: 2026-09-23 — نهاية الجلسة الثانية. **المرحلة الأولى مكتملة**، والباقي تجربة على هاتف حقيقي والنشر (انظر آخر الملف).
+آخر تحديث: 2026-09-24 — الجلسة الثالثة: منتقي تاريخ بأرقام لاتينية، مهلة قفل 5 دقائق، الرفع إلى GitHub والنشر على Pages.
 
 ## ✅ حالة أقسام jeybi-phase1.md
 
@@ -18,7 +18,7 @@
 | §10 PIN، البصمة، نسخ احتياطي، تذكير، persist | ✅ PIN مُختبَر؛ البصمة **تحتاج تجربة على Chrome Android** | `src/components/Lock.tsx`، `src/pages/Security.tsx`، `src/pages/Backup.tsx`، `src/services/security.ts` |
 | §11 الإعدادات، الوضع الليلي، حجم الخط، الترحيب | ✅ مُختبَر (عربي فاتح + فرنسي داكن) | `src/pages/Settings.tsx`، `src/pages/Onboarding.tsx` |
 | §12 اختبارات + بيانات تجريبية | ✅ 55 اختبارًا ناجحًا | `src/tests/*`، `src/repo/demo.ts` |
-| §13 النشر + README | ✅ جاهز، **لم يُرفع بعد** (يحتاج مستودع GitHub من المستخدم) | `.github/workflows/deploy.yml`، `netlify.toml`، `README.md` |
+| §13 النشر + README | ✅ مرفوع إلى https://github.com/yede3333-star/jeybi ومنشور تلقائيًا عبر GitHub Actions على https://yede3333-star.github.io/jeybi/ | `.github/workflows/deploy.yml`، `netlify.toml`، `README.md` |
 
 ## 🐞 أخطاء وجدتها التجربة الفعلية وأُصلحت
 
@@ -27,6 +27,12 @@
 - عدد البيانات التجريبية لم يحتسب عمليات الرسوم المرتبطة، والبيانات كانت تُنتج أرصدة سالبة ← أُعيد ضبطها + اختبار يضمن عدم السلبية.
 - صياغة "أين ذهب مالي؟" ("لـإيجار") وتكرار "أخرى" ← "إيجار 16%" و"باقي التصنيفات".
 - التصدير كان ينتظر `requestAnimationFrame` ← `setTimeout`.
+
+## 🆕 الجلسة الثالثة
+
+- `src/components/DatePicker.tsx`: `DateField` و`DateTimeField` (تقويم خاص + ساعة 24h) بدل كل حقول `type="date"`/`datetime-local` — الأرقام لاتينية دائمًا مهما كانت لغة الهاتف. مُختبَر في المتصفح.
+- مهلة القفل الافتراضية: 5 دقائق (`DEFAULT_SETTINGS.lockTimeoutMin`).
+- العملة: بدون تغيير بقرار المستخدم.
 
 ## 📌 قرارات تقنية يجب الالتزام بها
 
@@ -45,10 +51,10 @@
 13. **أداة Bash/Edit هنا تحوّل `\uXXXX` إلى أحرف فعلية** — استعمل `String.fromCharCode(...)`.
 14. **الترجمة:** أضف كل مفتاح إلى `ar.ts` ثم `fr.ts` (نوعه `Dict`، فالناقص يُفشل `tsc`). مفاتيح ديناميكية: `errors.<code>`، `backup.errors.<code>`، `history.<action>`، `history.fields.<field>`، `tx.saved_<type>`، `sys.<sysKey>`.
 15. **المرحلة الثانية:** أضف `this.version(2).stores({...}).upgrade(...)` في `src/data/db.ts` ولا تعدّل `version(1)`.
-16. الفرع الرئيسي اسمه `main` (سير عمل النشر يعمل عليه).
+16. الفرع الرئيسي اسمه `main`؛ كل push إليه يختبر ويبني وينشر. المستودع: `origin` = https://github.com/yede3333-star/jeybi.git
+17. **لا تستعمل `<input type="date">` أبدًا** — استعمل `DateField`/`DateTimeField`.
 
 ## ▶️ الخطوة التالية
 
-1. **المستخدم:** إنشاء مستودع GitHub ورفع المشروع وتفعيل Pages (الخطوات في README).
-2. تجربة على هاتف Android حقيقي: التثبيت، البصمة (WebAuthn)، المشاركة إلى واتساب، الكاميرا لصورة الوصل.
-3. بعدها: المرحلة الثانية.
+1. تجربة على هاتف Android حقيقي من الرابط المنشور: التثبيت، البصمة (WebAuthn)، المشاركة إلى واتساب، الكاميرا لصورة الوصل.
+2. بعدها: المرحلة الثانية.
