@@ -34,7 +34,7 @@ export async function reorderTemplates(ids: ID[]) {
 
 /** A template from an existing (non-split, non-transfer) transaction. */
 export function templateFromTx(tx: Transaction, name: string): Omit<Template, 'id' | 'order' | 'createdAt'> | null {
-  if (tx.type === 'transfer' || !tx.splits.length) return null;
+  if (tx.type === 'transfer' || tx.type === 'debt' || !tx.splits.length) return null;
   const main = [...tx.splits].sort((a, b) => b.amount - a.amount)[0];
   return { name, type: tx.type, amount: tx.amount, categoryId: main.categoryId, walletId: tx.walletId, note: tx.note, tags: tx.tags };
 }

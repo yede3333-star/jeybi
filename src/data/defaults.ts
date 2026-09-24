@@ -31,6 +31,8 @@ export const DEFAULT_EXPENSE_CATEGORIES: CategorySeed[] = [
   { sysKey: 'charity', icon: 'hand-heart', color: '#22c55e' },
   { sysKey: 'fees', icon: 'receipt', color: '#64748b' },
   { sysKey: 'other_expense', icon: 'circle-ellipsis', color: '#94a3b8' },
+  { sysKey: 'zakat', icon: 'moon', color: '#0d9488' },
+  { sysKey: 'adjustment_expense', icon: 'scale', color: '#78716c' },
 ];
 
 export const DEFAULT_INCOME_CATEGORIES: CategorySeed[] = [
@@ -39,6 +41,7 @@ export const DEFAULT_INCOME_CATEGORIES: CategorySeed[] = [
   { sysKey: 'services', icon: 'wrench', color: '#7c3aed' },
   { sysKey: 'gifts', icon: 'gift', color: '#db2777' },
   { sysKey: 'other_income', icon: 'circle-ellipsis', color: '#94a3b8' },
+  { sysKey: 'adjustment_income', icon: 'scale', color: '#78716c' },
 ];
 
 export function buildDefaultWallets(now = Date.now()): Wallet[] {
@@ -60,4 +63,20 @@ export function buildDefaultCategories(now = Date.now()): Category[] {
   add('expense', DEFAULT_EXPENSE_CATEGORIES, null);
   add('income', DEFAULT_INCOME_CATEGORIES, null);
   return out;
+}
+
+/** Built-in categories added after phase 1. Existing databases get them through the migration. */
+const PHASE2_SYSTEM: Array<{ kind: CategoryKind; seed: CategorySeed }> = [
+  { kind: 'expense', seed: { sysKey: 'zakat', icon: 'moon', color: '#0d9488' } },
+  { kind: 'expense', seed: { sysKey: 'adjustment_expense', icon: 'scale', color: '#78716c' } },
+  { kind: 'income', seed: { sysKey: 'adjustment_income', icon: 'scale', color: '#78716c' } },
+];
+
+/** System categories that are missing from `existing` (idempotent: never duplicates). */
+export function missingSystemCategories(existing: Category[], now = Date.now()): Category[] {
+  const have = new Set(existing.map((c) => c.sysKey).filter(Boolean));
+  return PHASE2_SYSTEM.filter((p) => !have.has(p.seed.sysKey)).map((p, i) => ({
+    id: uid(), kind: p.kind, parentId: null, name: '', sysKey: p.seed.sysKey, icon: p.seed.icon, color: p.seed.color,
+    archived: false, order: 100 + i, createdAt: now, updatedAt: now,
+  }));
 }

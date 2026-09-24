@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Camera, ChevronDown, ImageOff, Plus, SplitSquareHorizontal, Trash2 } from 'lucide-react';
 import type { ID, Split, Transaction, TxType } from '../data/types';
+
+/** The editor handles everyday entries; debt movements are managed from the debts page. */
+export type EditType = Exclude<TxType, 'debt'>;
 import { Sheet, Segmented } from './ui';
 import { AmountPad, formatBuffer } from './AmountPad';
 import { CategoryGrid, CategorySelect, WalletChips } from './pickers';
@@ -18,7 +21,7 @@ import { compressImage } from '../services/image';
 
 interface SplitRow { categoryId: ID | ''; amount: string }
 
-export default function TxSheet({ initialType, tx, onClose }: { initialType: TxType; tx?: Transaction; onClose: () => void }) {
+export default function TxSheet({ initialType, tx, onClose }: { initialType: EditType; tx?: Transaction; onClose: () => void }) {
   const { t } = useTranslation();
   const lang = useLang();
   const fmt = useFmt();
@@ -27,7 +30,7 @@ export default function TxSheet({ initialType, tx, onClose }: { initialType: TxT
   const wallets = useWallets() ?? [];
   const editing = !!tx;
 
-  const [type, setType] = useState<TxType>(initialType);
+  const [type, setType] = useState<EditType>(initialType);
   const [buf, setBuf] = useState(tx ? minorToKeypad(tx.amount) : '');
   const [step, setStep] = useState<'amount' | 'details'>(tx ? 'details' : 'amount');
   const [walletId, setWalletId] = useState<ID | undefined>(tx?.walletId);
@@ -116,7 +119,7 @@ export default function TxSheet({ initialType, tx, onClose }: { initialType: TxT
   };
 
   const typeTabs = (
-    <Segmented<TxType>
+    <Segmented<EditType>
       value={type}
       onChange={(v) => { setType(v); setCategoryId(undefined); setSplitMode(false); }}
       options={[

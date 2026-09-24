@@ -1,5 +1,6 @@
 export type ID = string;
-export type TxType = 'income' | 'expense' | 'transfer';
+/** `debt` = money lent/borrowed/repaid: moves a wallet but is never income or expense. */
+export type TxType = 'income' | 'expense' | 'transfer' | 'debt';
 export type CategoryKind = 'income' | 'expense';
 
 /** All money values are integers in minor units (amount × 100). */
@@ -13,6 +14,8 @@ export interface Wallet {
   openingBalance: number;
   archived: boolean;
   order: number;
+  /** Last balance reconciliation (phase 2). */
+  lastReconciledAt?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -58,6 +61,18 @@ export interface Transaction {
   feeTxId?: ID;
   /** Set when created from a quick template (lets search find it by the template name). */
   templateId?: ID;
+  /** Debt movements: the debt, and whether money came into (in) or left (out) the wallet. */
+  debtId?: ID;
+  flow?: 'in' | 'out';
+  /** Occurrence key "recurringId:yyyy-MM-dd" for transactions generated from a recurring rule. */
+  recurringKey?: string;
+  /** Foreign-currency entry: original amount (minor units of `origCurrency`) and the rate used,
+   *  as base-currency per 1 unit × 10 000 (integer, so no float rounding). `amount` is in base. */
+  origCurrency?: string;
+  origAmount?: number;
+  rateE4?: number;
+  /** Balance reconciliation adjustment. */
+  adjustment?: boolean;
   currency: string;
   demo?: boolean;
   createdAt: number;
@@ -102,4 +117,91 @@ export interface AuditEntry {
 export interface MetaRow {
   key: string;
   value: unknown;
+}
+
+// ---------------- Phase 2 ----------------
+
+export type DebtDirection = 'owed_to_me' | 'i_owe';
+
+export interface Debt {
+  id: ID;
+  direction: DebtDirection;
+  person: string;
+  /** Principal in base minor units. */
+  amount: number;
+  date: number;
+  dueDate: number | null;
+  note: string;
+  /** Wallet the principal left/entered. null = recorded without moving money (an older debt). */
+  walletId: ID | null;
+  /** Transaction that moved the principal (when walletId is set). */
+  principalTxId: ID | null;
+  closedAt: number | null;
+  demo?: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface Budget {
+  /** "yyyy-MM:categoryId" */
+  id: string;
+  month: string;
+  categoryId: ID;
+  amount: number;
+  demo?: boolean;
+}
+
+export type Frequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+export interface Recurring {
+  id: ID;
+  name: string;
+  type: 'income' | 'expense';
+  amount: number;
+  walletId: ID;
+  categoryId: ID;
+  note: string;
+  tags: string[];
+  frequency: Frequency;
+  /** First occurrence (its time of day is used for every occurrence). */
+  startDate: number;
+  endDate: number | null;
+  /** auto = recorded directly; confirm = waits in "pending" until the user accepts. */
+  mode: 'auto' | 'confirm';
+  /** Next occurrence not yet generated. Advanced atomically → never generated twice. */
+  nextDue: number;
+  active: boolean;
+  demo?: boolean;
+  createdAt: number;
+}
+
+export interface PendingOccurrence {
+  /** "recurringId:yyyy-MM-dd" */
+  id: string;
+  recurringId: ID;
+  date: number;
+}
+
+export interface Goal {
+  id: ID;
+  name: string;
+  target: number;
+  targetDate: number | null;
+  icon: string;
+  color: string;
+  imageId?: ID;
+  archived: boolean;
+  demo?: boolean;
+  createdAt: number;
+}
+
+/** Money set aside for a goal (+) or taken back (−). It stays in its wallet. */
+export interface GoalMove {
+  id: ID;
+  goalId: ID;
+  walletId: ID;
+  amount: number;
+  date: number;
+  note: string;
+  demo?: boolean;
 }

@@ -17,6 +17,7 @@ const fr: Dict = {
     phone: 'Crédit téléphone et internet', rent: 'Loyer', utilities: 'Électricité et eau', family: 'Famille', health: 'Santé',
     clothes: 'Vêtements', education: 'Éducation', charity: 'Aumônes', fees: 'Frais', other_expense: 'Autres',
     salary: 'Salaire', commissions: 'Commissions', services: 'Services', gifts: 'Cadeaux', other_income: 'Autres',
+    zakat: 'Zakat', adjustment_expense: 'Dépense non enregistrée', adjustment_income: 'Revenu non enregistré',
   },
   categories: { general: 'Général' },
   home: {

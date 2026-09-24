@@ -11,6 +11,8 @@ export function walletDeltas(t: Transaction): Array<[ID, number]> {
     case 'income': return [[t.walletId, t.amount]];
     case 'expense': return [[t.walletId, -t.amount]];
     case 'transfer': return t.toWalletId ? [[t.walletId, -t.amount], [t.toWalletId, t.amount]] : [];
+    // Lending/borrowing/repaying: moves the wallet, never income or expense.
+    case 'debt': return [[t.walletId, t.flow === 'in' ? t.amount : -t.amount]];
   }
 }
 
@@ -91,19 +93,20 @@ export function byCategory(
     .sort((a, b) => b.amount - a.amount);
 }
 
-export interface WalletFlow { walletId: ID; income: number; expense: number; transferIn: number; transferOut: number }
+export interface WalletFlow { walletId: ID; income: number; expense: number; transferIn: number; transferOut: number; debtIn: number; debtOut: number }
 
 export function byWallet(txs: Transaction[], p: Period): WalletFlow[] {
   const m = new Map<ID, WalletFlow>();
   const get = (id: ID) => {
     let e = m.get(id);
-    if (!e) m.set(id, (e = { walletId: id, income: 0, expense: 0, transferIn: 0, transferOut: 0 }));
+    if (!e) m.set(id, (e = { walletId: id, income: 0, expense: 0, transferIn: 0, transferOut: 0, debtIn: 0, debtOut: 0 }));
     return e;
   };
   for (const t of txs) {
     if (!alive(t) || !inPeriod(t.date, p)) continue;
     if (t.type === 'income') get(t.walletId).income += t.amount;
     else if (t.type === 'expense') get(t.walletId).expense += t.amount;
+    else if (t.type === 'debt') get(t.walletId)[t.flow === 'in' ? 'debtIn' : 'debtOut'] += t.amount;
     else if (t.toWalletId) {
       get(t.walletId).transferOut += t.amount;
       get(t.toWalletId).transferIn += t.amount;
@@ -117,14 +120,15 @@ export interface TimelinePoint extends Bucket { income: number; expense: number 
 export function timeline(txs: Transaction[], p: Period): TimelinePoint[] {
   const buckets = bucketsFor(p).map((b) => ({ ...b, income: 0, expense: 0 }));
   for (const t of txs) {
-    if (!alive(t) || t.type === 'transfer' || !inPeriod(t.date, p)) continue;
+    if (!alive(t) || (t.type !== 'income' && t.type !== 'expense') || !inPeriod(t.date, p)) continue;
+    const kind = t.type;
     // buckets are sorted; binary search
     let lo = 0, hi = buckets.length - 1;
     while (lo <= hi) {
       const mid = (lo + hi) >> 1;
       if (t.date < buckets[mid].start) hi = mid - 1;
       else if (t.date >= buckets[mid].end) lo = mid + 1;
-      else { buckets[mid][t.type] += t.amount; break; }
+      else { buckets[mid][kind] += t.amount; break; }
     }
   }
   return buckets;
@@ -246,7 +250,7 @@ export function sumFiltered(rows: Array<{ tx: Transaction; counted: number }>): 
   for (const { tx, counted } of rows) {
     if (tx.type === 'income') income += counted;
     else if (tx.type === 'expense') expense += counted;
-    else transfers += counted;
+    else if (tx.type === 'transfer') transfers += counted;
   }
   return { income, expense, net: income - expense, transfers };
 }

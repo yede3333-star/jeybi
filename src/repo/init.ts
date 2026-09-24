@@ -36,8 +36,7 @@ export async function requestPersistentStorage(): Promise<boolean | null> {
 
 /** Wipes everything (used by "reset app"). */
 export async function wipeAll(): Promise<void> {
-  await db.transaction('rw', [db.wallets, db.categories, db.transactions, db.templates, db.receipts, db.audit, db.meta], async () => {
-    await Promise.all([db.wallets.clear(), db.categories.clear(), db.transactions.clear(), db.templates.clear(),
-      db.receipts.clear(), db.audit.clear(), db.meta.clear()]);
+  await db.transaction('rw', db.tables, async () => {
+    await Promise.all(db.tables.map((t) => t.clear()));
   });
 }

@@ -1,7 +1,7 @@
 import {
   Baby, Banknote, Bike, BookOpen, Briefcase, Bus, Cake, Car, CarTaxiFront, CircleEllipsis, Coffee, Coins, CreditCard,
   Droplets, Dumbbell, Fuel, Gamepad2, Gift, GraduationCap, Hammer, HandHeart, HeartPulse, House, Landmark, Moon,
-  Percent, Phone, PiggyBank, Pill, Plane, Receipt, Scissors, Shirt, ShoppingBag, ShoppingBasket, Smartphone, Sofa,
+  Percent, Phone, Scale, Target, Handshake, Repeat, PiggyBank, Pill, Plane, Receipt, Scissors, Shirt, ShoppingBag, ShoppingBasket, Smartphone, Sofa,
   Sprout, Star, Stethoscope, Store, Tag, Tractor, Tv, Users, Utensils, Wallet, Wifi, Wrench, Zap, type LucideIcon,
 } from 'lucide-react';
 
@@ -14,7 +14,7 @@ export const ICONS: Record<string, LucideIcon> = {
   'circle-ellipsis': CircleEllipsis, briefcase: Briefcase, percent: Percent, wrench: Wrench, gift: Gift, plane: Plane,
   phone: Phone, wifi: Wifi, gamepad: Gamepad2, dumbbell: Dumbbell, scissors: Scissors, store: Store,
   'shopping-bag': ShoppingBag, hammer: Hammer, tv: Tv, sofa: Sofa, cake: Cake, moon: Moon, star: Star, tag: Tag,
-  tractor: Tractor, sprout: Sprout,
+  tractor: Tractor, sprout: Sprout, scale: Scale, target: Target, handshake: Handshake, repeat: Repeat,
 };
 
 export const ICON_NAMES = Object.keys(ICONS);

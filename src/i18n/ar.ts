@@ -14,6 +14,7 @@ const ar = {
     phone: 'رصيد هاتف وإنترنت', rent: 'إيجار', utilities: 'كهرباء وماء', family: 'عائلة', health: 'صحة',
     clothes: 'ملابس', education: 'تعليم', charity: 'صدقات', fees: 'رسوم', other_expense: 'أخرى',
     salary: 'راتب', commissions: 'عمولات', services: 'خدمات', gifts: 'هدايا', other_income: 'أخرى',
+    zakat: 'زكاة', adjustment_expense: 'مصروف غير مسجَّل', adjustment_income: 'دخل غير مسجَّل',
   },
   categories: { general: 'عام' },
   home: {
