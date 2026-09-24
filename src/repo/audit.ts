@@ -2,7 +2,7 @@ import { db } from '../data/db';
 import type { AuditEntry, FieldChange, ID, Transaction } from '../data/types';
 
 const TRACKED: Array<keyof Transaction> = [
-  'type', 'amount', 'walletId', 'toWalletId', 'splits', 'date', 'note', 'tags', 'receiptId',
+  'type', 'amount', 'walletId', 'toWalletId', 'splits', 'date', 'note', 'tags', 'receiptId', 'origCurrency', 'origAmount', 'rateE4',
 ];
 
 export function diffTx(before: Transaction, after: Transaction): FieldChange[] {

@@ -168,7 +168,10 @@ export interface Recurring {
   endDate: number | null;
   /** auto = recorded directly; confirm = waits in "pending" until the user accepts. */
   mode: 'auto' | 'confirm';
-  /** Next occurrence not yet generated. Advanced atomically → never generated twice. */
+  /** Occurrences already generated (or queued for confirmation). Occurrence n is computed from
+   *  startDate + n periods, so "monthly on the 31st" gives 31 Jan, 28 Feb, 31 Mar… */
+  generated: number;
+  /** Date of occurrence `generated` (next one due) — indexed, advanced atomically with `generated`. */
   nextDue: number;
   active: boolean;
   demo?: boolean;

@@ -5,6 +5,8 @@ import { diffTx, log } from './audit';
 import { getSettings, setSettings } from './settings';
 import { ensureFeesCategory } from './categories';
 import { deleteTxRow, patchTx, putTx } from './flows';
+import { toBase } from '../services/currency';
+import { syncDebtClosure } from './debtSync';
 
 export interface TxInput {
   type: TxType;
@@ -21,6 +23,12 @@ export interface TxInput {
   /** Transfers only: optional fee, recorded as a separate expense in the "fees" category. */
   fee?: number;
   templateId?: ID;
+  /** Foreign currency: original amount/currency and rate; `amount` must equal toBase(origAmount, rateE4). */
+  origCurrency?: string;
+  origAmount?: number;
+  rateE4?: number;
+  recurringKey?: string;
+  adjustment?: boolean;
   demo?: boolean;
 }
 
@@ -37,6 +45,12 @@ export function normalizeTag(tag: string): string {
 
 function validate(input: TxInput): Split[] {
   if (!Number.isInteger(input.amount) || input.amount <= 0) throw new ValidationError('amount');
+  if (input.origCurrency) {
+    const { origAmount, rateE4 } = input;
+    if (!Number.isInteger(origAmount) || origAmount! <= 0 || !Number.isInteger(rateE4) || rateE4! <= 0) throw new ValidationError('rate');
+    if (toBase(origAmount!, rateE4!) !== input.amount) throw new ValidationError('rate');
+  }
+  if (input.type === 'debt') throw new ValidationError('debtViaDebts');
   if (!input.walletId) throw new ValidationError('wallet');
   if (input.type === 'transfer') {
     if (!input.toWalletId || input.toWalletId === input.walletId) throw new ValidationError('transferWallets');
@@ -71,6 +85,9 @@ function build(input: TxInput, splits: Split[], base: Partial<Transaction>, now:
     ...(input.receiptId ? { receiptId: input.receiptId } : {}),
     ...(base.transferId ? { transferId: base.transferId } : {}),
     ...(input.templateId ?? base.templateId ? { templateId: input.templateId ?? base.templateId } : {}),
+    ...(input.origCurrency ? { origCurrency: input.origCurrency, origAmount: input.origAmount, rateE4: input.rateE4 } : {}),
+    ...(input.recurringKey ?? base.recurringKey ? { recurringKey: input.recurringKey ?? base.recurringKey } : {}),
+    ...(input.adjustment || base.adjustment ? { adjustment: true } : {}),
     currency: base.currency ?? currency,
     ...(input.demo || base.demo ? { demo: true } : {}),
     createdAt: base.createdAt ?? now,
@@ -79,7 +96,7 @@ function build(input: TxInput, splits: Split[], base: Partial<Transaction>, now:
   };
 }
 
-const TABLES = () => [db.transactions, db.audit, db.meta, db.categories, db.receipts] as const;
+const TABLES = () => [db.transactions, db.audit, db.meta, db.categories, db.receipts, db.debts] as const;
 
 function feeTx(transfer: Transaction, fee: number, feesCategoryId: ID, now: number, existing?: Transaction): Transaction {
   return {
@@ -199,6 +216,7 @@ export async function deleteTransaction(id: ID): Promise<{ undo: Undo }> {
     if (!tx || tx.deletedAt != null) return;
     await patchTx(id, { deletedAt: now, updatedAt: now });
     await log(id, 'delete', undefined, now);
+    await syncDebtClosure(tx.debtId, now);
     if (tx.feeTxId) {
       const f = await db.transactions.get(tx.feeTxId);
       if (f && f.deletedAt == null) {
@@ -222,6 +240,7 @@ export async function restoreTransaction(id: ID, deletedAt?: number): Promise<vo
     const when = tx.deletedAt;
     await patchTx(id, { deletedAt: null, updatedAt: now });
     await log(id, 'restore', undefined, now);
+    await syncDebtClosure(tx.debtId, now);
     if (tx.feeTxId) {
       const f = await db.transactions.get(tx.feeTxId);
       if (f && f.deletedAt != null && f.deletedAt === (deletedAt ?? when)) {
@@ -248,6 +267,7 @@ export async function purgeTransaction(id: ID): Promise<void> {
       const parent = await db.transactions.get(tx.transferId);
       if (parent?.feeTxId === id) await patchTx(parent.id, { feeTxId: undefined });
     }
+    await syncDebtClosure(tx.debtId);
   });
 }
 

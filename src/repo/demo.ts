@@ -85,7 +85,7 @@ export async function addDemoData(lang: 'ar' | 'fr' = 'ar', now = Date.now()): P
   exp(addDays(wedding, -2), 17, 'clothes', 4000_00, cash, L('دراعة جديدة', 'Nouveau boubou'), [L('عرس', 'mariage')]);
 
   const past = items.filter((i) => i.date <= now);
-  await db.transaction('rw', [db.transactions, db.audit, db.meta, db.categories, db.receipts], async () => {
+  await db.transaction('rw', [db.transactions, db.audit, db.meta, db.categories, db.receipts, db.debts], async () => {
     for (const it of past) await createTransaction(it);
   });
   // Count stored rows, not inputs: transfers with a fee also create a linked fee expense.

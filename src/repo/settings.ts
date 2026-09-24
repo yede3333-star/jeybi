@@ -2,8 +2,23 @@ import { db } from '../data/db';
 import type { Lang } from '../lib/money';
 import type { WeekStart } from '../lib/period';
 
+export interface ZakatSettings {
+  basis: 'gold' | 'silver';
+  /** Price of one gram, base minor units (entered by the user — no internet). */
+  gramPriceGold: number;
+  gramPriceSilver: number;
+  /** Wallets counted; null = all active wallets. */
+  walletIds: string[] | null;
+  includeReceivables: boolean;
+  subtractPayables: boolean;
+  /** Date the nisab was reached (start of the current hawl). */
+  hawlStart: number | null;
+  lastPaidAt: number | null;
+}
+
 export interface Settings {
   lang: Lang | null;
+  /** Base currency: every balance and report is in it. Locked once transactions exist. */
   currency: string;
   weekStartsOn: WeekStart;
   theme: 'system' | 'light' | 'dark';
@@ -24,6 +39,22 @@ export interface Settings {
   bioAlg: number | null;
   /** False for PINs hashed before per-device calibration; re-hashed after the next unlock. */
   pinCalibrated: boolean;
+  // Phase 2
+  reminderEnabled: boolean;
+  /** Hour (0-23) after which the "nothing recorded today" banner appears. */
+  reminderHour: number;
+  reminderSnoozedDay: string | null;
+  notificationsEnabled: boolean;
+  insightsEnabled: boolean;
+  /** Minimum % difference for a spending note to be shown. */
+  insightThresholdPct: number;
+  /** Extra currencies the user can record in (base currency excluded). */
+  currencies: Array<{ code: string; name: string }>;
+  /** Last rate used per currency (base per 1 unit × 10 000). */
+  lastRates: Record<string, number>;
+  zakat: ZakatSettings;
+  /** Budget alerts already shown: "yyyy-MM:categoryId" → 80 | 100. */
+  budgetAlerts: Record<string, number>;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -46,12 +77,25 @@ export const DEFAULT_SETTINGS: Settings = {
   bioPublicKey: null,
   bioAlg: null,
   pinCalibrated: false,
+  reminderEnabled: true,
+  reminderHour: 20,
+  reminderSnoozedDay: null,
+  notificationsEnabled: false,
+  insightsEnabled: true,
+  insightThresholdPct: 30,
+  currencies: [{ code: 'EUR', name: 'Euro' }, { code: 'USD', name: 'Dollar' }],
+  lastRates: {},
+  zakat: {
+    basis: 'gold', gramPriceGold: 0, gramPriceSilver: 0, walletIds: null,
+    includeReceivables: true, subtractPayables: true, hawlStart: null, lastPaidAt: null,
+  },
+  budgetAlerts: {},
 };
 
 /** Keys that are device-specific and never travel inside a backup file. */
 export const DEVICE_ONLY_KEYS: Array<keyof Settings> = [
   'pinHash', 'pinSalt', 'pinIterations', 'pinLength', 'bioCredentialId', 'bioPublicKey', 'bioAlg',
-  'pinCalibrated', 'lastWalletId', 'backupBannerSnoozedAt',
+  'pinCalibrated', 'lastWalletId', 'backupBannerSnoozedAt', 'reminderSnoozedDay', 'notificationsEnabled',
 ];
 
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
