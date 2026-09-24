@@ -39,7 +39,7 @@ export const DEFAULT_SETTINGS: Settings = {
   pinSalt: null,
   pinIterations: 210000,
   pinLength: 4,
-  lockTimeoutMin: 1,
+  lockTimeoutMin: 5,
   bioCredentialId: null,
   bioPublicKey: null,
   bioAlg: null,

@@ -4,7 +4,7 @@ const ar = {
   common: {
     today: 'اليوم', yesterday: 'أمس', unknown: 'غير معروف', close: 'إغلاق', back: 'رجوع', undo: 'تراجع',
     next: 'التالي', save: 'حفظ', confirm: 'تأكيد', delete: 'حذف', edit: 'تعديل', add: 'إضافة', remove: 'إزالة',
-    later: 'لاحقًا', manage: 'إدارة', seeAll: 'عرض الكل', showMore: 'عرض المزيد',
+    later: 'لاحقًا', manage: 'إدارة', seeAll: 'عرض الكل', showMore: 'عرض المزيد', now: 'الآن',
   },
   types: { expense: 'مصروف', income: 'دخل', transfer: 'تحويل' },
   days: { mon: 'الاثنين', sat: 'السبت', sun: 'الأحد' },

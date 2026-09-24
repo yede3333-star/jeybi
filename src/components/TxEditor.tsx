@@ -1,12 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { format } from 'date-fns';
 import { Camera, ChevronDown, ImageOff, Plus, SplitSquareHorizontal, Trash2 } from 'lucide-react';
 import type { ID, Split, Transaction, TxType } from '../data/types';
 import { Sheet, Segmented } from './ui';
 import { AmountPad, formatBuffer } from './AmountPad';
 import { CategoryGrid, CategorySelect, WalletChips } from './pickers';
 import { TagInput } from './TagInput';
+import { DateTimeField } from './DatePicker';
 import { useToast } from './Toast';
 import { useWallets } from '../hooks/data';
 import { useLang, useSettings } from '../hooks/settings';
@@ -38,9 +38,6 @@ export function TxEditorProvider({ children }: { children: ReactNode }) {
   );
 }
 
-const toLocalInput = (ms: number) => format(ms, "yyyy-MM-dd'T'HH:mm");
-const fromLocalInput = (s: string) => (s ? new Date(s).getTime() : Date.now());
-
 interface SplitRow { categoryId: ID | ''; amount: string }
 
 function TxSheet({ initialType, tx, onClose }: { initialType: TxType; tx?: Transaction; onClose: () => void }) {
@@ -62,7 +59,7 @@ function TxSheet({ initialType, tx, onClose }: { initialType: TxType; tx?: Trans
   const [splits, setSplits] = useState<SplitRow[]>(
     tx && tx.splits.length > 1 ? tx.splits.map((s) => ({ categoryId: s.categoryId, amount: minorToKeypad(s.amount) })) : [],
   );
-  const [date, setDate] = useState(toLocalInput(tx?.date ?? Date.now()));
+  const [date, setDate] = useState<number>(tx?.date ?? Date.now());
   const [note, setNote] = useState(tx?.note ?? '');
   const [tags, setTags] = useState<string[]>(tx?.tags ?? []);
   const [fee, setFee] = useState('');
@@ -105,7 +102,7 @@ function TxSheet({ initialType, tx, onClose }: { initialType: TxType; tx?: Trans
   const save = useCallback(async (pickedCategory?: ID) => {
     setError(null);
     const input: TxInput = {
-      type, amount, walletId: walletId ?? '', date: fromLocalInput(date), note, tags,
+      type, amount, walletId: walletId ?? '', date, note, tags,
       receiptId: receiptId ?? null,
     };
     if (type === 'transfer') {
@@ -267,8 +264,8 @@ function TxSheet({ initialType, tx, onClose }: { initialType: TxType; tx?: Trans
               <input id="note" className="input" value={note} onChange={(e) => setNote(e.target.value)} />
             </div>
             <div>
-              <label className="label" htmlFor="date">{t('tx.dateTime')}</label>
-              <input id="date" type="datetime-local" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+              <span className="label">{t('tx.dateTime')}</span>
+              <DateTimeField value={date} onChange={setDate} label={t('tx.dateTime')} />
             </div>
             <div>
               <span className="label">{t('tx.tags')}</span>

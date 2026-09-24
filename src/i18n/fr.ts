@@ -7,7 +7,7 @@ const fr: Dict = {
   common: {
     today: 'Aujourd’hui', yesterday: 'Hier', unknown: 'Inconnu', close: 'Fermer', back: 'Retour', undo: 'Annuler',
     next: 'Suivant', save: 'Enregistrer', confirm: 'Confirmer', delete: 'Supprimer', edit: 'Modifier', add: 'Ajouter', remove: 'Retirer',
-    later: 'Plus tard', manage: 'Gérer', seeAll: 'Tout voir', showMore: 'Afficher plus',
+    later: 'Plus tard', manage: 'Gérer', seeAll: 'Tout voir', showMore: 'Afficher plus', now: 'Maintenant',
   },
   types: { expense: 'Dépense', income: 'Revenu', transfer: 'Transfert' },
   days: { mon: 'Lundi', sat: 'Samedi', sun: 'Dimanche' },

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Segmented } from './ui';
+import { DateField } from './DatePicker';
 import { useSettings } from '../hooks/settings';
 import { useFmt } from '../hooks/fmt';
 import { customPeriod, periodFor, previousPeriod, shiftPeriod, type Period, type PeriodKind } from '../lib/period';
@@ -44,10 +45,10 @@ export function PeriodNav({ period, setPeriod }: { period: Period; setPeriod: (p
       ]} />
       {period.kind === 'custom' ? (
         <div className="grid grid-cols-2 gap-2">
-          <input type="date" className="input" aria-label={t('filters.from')} value={toDay(period.start)}
-            onChange={(e) => e.target.value && setPeriod(customPeriod(fromDay(e.target.value), period.end - 1))} />
-          <input type="date" className="input" aria-label={t('filters.to')} value={toDay(period.end - 1)}
-            onChange={(e) => e.target.value && setPeriod(customPeriod(period.start, fromDay(e.target.value)))} />
+          <DateField label={t('filters.from')} value={toDay(period.start)}
+            onChange={(v) => v && setPeriod(customPeriod(fromDay(v), period.end - 1))} />
+          <DateField label={t('filters.to')} value={toDay(period.end - 1)}
+            onChange={(v) => v && setPeriod(customPeriod(period.start, fromDay(v)))} />
         </div>
       ) : null}
       <div className="flex items-center gap-2">

@@ -8,6 +8,7 @@ import { useFmt } from '../hooks/fmt';
 import { PageHeader, Sheet, Empty } from '../components/ui';
 import { TxRow, groupByDay } from '../components/TxRow';
 import { CategorySelect } from '../components/pickers';
+import { DateField } from '../components/DatePicker';
 import { expandCategoryIds, filterTransactions, sumFiltered, type TxFilter } from '../services/reports';
 import { parseAmount } from '../lib/money';
 import { fromDay, toDay } from '../lib/periodParams';
@@ -170,8 +171,8 @@ function FilterSheet({ open, onClose, f, setF, walletsList }: {
         <div>
           <span className="label">{t('filters.period')}</span>
           <div className="grid grid-cols-2 gap-2">
-            <input type="date" className="input" value={f.from} max={f.to || today} onChange={(e) => setF({ from: e.target.value })} aria-label={t('filters.from')} />
-            <input type="date" className="input" value={f.to} min={f.from} onChange={(e) => setF({ to: e.target.value })} aria-label={t('filters.to')} />
+            <DateField clearable label={t('filters.from')} value={f.from} max={f.to || today} onChange={(v) => setF({ from: v })} />
+            <DateField clearable label={t('filters.to')} value={f.to} min={f.from || undefined} onChange={(v) => setF({ to: v })} />
           </div>
         </div>
         <div>
