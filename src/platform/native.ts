@@ -7,7 +7,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Camera, MediaTypeSelection } from '@capacitor/camera';
 import { AndroidBiometryStrength, BiometricAuth, BiometryError, BiometryErrorType } from '@aparajita/capacitor-biometric-auth';
-import { runBackHandler } from '.';
+import { runBackHandler, setSharedText } from '.';
 import { NOTIFY_IDS, type PlannedNotification } from '../services/notifyPlan';
 import { logError } from '../services/errorLog';
 
@@ -16,6 +16,21 @@ interface DownloadsPlugin {
   save(o: { filename: string; mimeType: string; data: string }): Promise<{ path: string }>;
 }
 const Downloads = registerPlugin<DownloadsPlugin>('JeybiDownloads');
+
+/** Our plugin for "Share → Jeybi" (ShareInPlugin.java). */
+interface ShareInPlugin {
+  getPending(): Promise<{ text: string | null }>;
+  addListener(event: 'sharedText', fn: () => void): Promise<{ remove: () => Promise<void> }>;
+}
+const ShareIn = registerPlugin<ShareInPlugin>('JeybiShareIn');
+
+/** Shared text → the "اكتب يومك" screen (the lock screen still comes first when the app is locked). */
+async function takeShared() {
+  const { text } = await ShareIn.getPending();
+  if (!text) return;
+  setSharedText(text);
+  location.hash = '#/write';
+}
 
 // ---------------- Start-up ----------------
 
@@ -26,6 +41,8 @@ export function initNative() {
   // index.html paints the same icon as the splash, so it can go as soon as JavaScript runs.
   void SplashScreen.hide().catch((e) => logError(e, 'native:splash'));
   void App.addListener('backButton', onBack);
+  void takeShared().catch((e) => logError(e, 'native:share-in'));
+  void ShareIn.addListener('sharedText', () => void takeShared().catch((e) => logError(e, 'native:share-in')));
   // The lock timer listens to this (visibilitychange is not reliable inside the Android WebView).
   void App.addListener('appStateChange', ({ isActive }) => {
     window.dispatchEvent(new CustomEvent('jeybi:app-active', { detail: isActive }));
@@ -249,5 +266,41 @@ export async function pickPhoto(source: 'camera' | 'gallery'): Promise<Blob | nu
   } catch (e) {
     if (isCancel(e) || /no image|no photo|not selected/i.test(String((e as Error)?.message))) return null;
     throw e;
+  }
+}
+
+// ---------------- Voice input ("اكتب يومك") ----------------
+
+export type SpeechFailure = 'unavailable' | 'denied' | 'network' | 'noSpeech' | 'cancelled' | 'other';
+export class SpeechError extends Error {
+  constructor(public code: SpeechFailure) { super(code); }
+}
+
+export async function speechAvailable(): Promise<boolean> {
+  try {
+    const { SpeechRecognition } = await import('@capgo/capacitor-speech-recognition');
+    return (await SpeechRecognition.available()).available;
+  } catch {
+    return false;
+  }
+}
+
+/** Listens once with the phone's recogniser (Google's dialog) and returns what was heard. */
+export async function listenOnce(language: string): Promise<string> {
+  const { SpeechRecognition } = await import('@capgo/capacitor-speech-recognition');
+  if (!(await SpeechRecognition.available()).available) throw new SpeechError('unavailable');
+  const perm = await SpeechRecognition.requestPermissions();
+  if (perm.speechRecognition !== 'granted') throw new SpeechError('denied');
+  try {
+    const r = await SpeechRecognition.start({ language, maxResults: 1, popup: true, partialResults: false });
+    return r.matches?.[0] ?? '';
+  } catch (e) {
+    const m = String((e as Error)?.message ?? e);
+    if (/network|internet|server|offline|connect/i.test(m)) throw new SpeechError('network');
+    if (/cancel/i.test(m)) throw new SpeechError('cancelled');
+    if (/no match|no speech|not recogni|didn|timeout|silence/i.test(m)) throw new SpeechError('noSpeech');
+    if (/permission|denied/i.test(m)) throw new SpeechError('denied');
+    logError(e, 'speech:native');
+    throw new SpeechError('other');
   }
 }

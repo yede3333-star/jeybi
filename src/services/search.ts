@@ -75,7 +75,7 @@ export function buildSearchNames(
 }
 
 function haystack(t: Transaction, names?: SearchNames): string {
-  const parts = [normalize(t.note), normalize(t.tags.join(' '))];
+  const parts = [normalize(t.note), normalize(t.tags.join(' ')), t.sourceText ? normalize(t.sourceText) : ''];
   if (names) {
     for (const s of t.splits) parts.push(names.category.get(s.categoryId) ?? '');
     parts.push(names.wallet.get(t.walletId) ?? '');

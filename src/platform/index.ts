@@ -43,3 +43,16 @@ export function displayMode(): 'android' | 'standalone' | 'browser' {
   if (isNative) return 'android';
   return matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser';
 }
+
+// ---------------- Text shared to the app (Android "Share → Jeybi") ----------------
+let sharedText: string | null = null;
+/** Called by the native layer; the "اكتب يومك" screen takes it (once). */
+export function setSharedText(text: string) {
+  sharedText = text;
+  window.dispatchEvent(new CustomEvent('jeybi:shared-text'));
+}
+export function takeSharedText(): string | null {
+  const t = sharedText;
+  sharedText = null;
+  return t;
+}

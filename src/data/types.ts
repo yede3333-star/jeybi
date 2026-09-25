@@ -73,6 +73,8 @@ export interface Transaction {
   rateE4?: number;
   /** Balance reconciliation adjustment. */
   adjustment?: boolean;
+  /** Created from "اكتب يومك": the whole sentence the user wrote (searchable). */
+  sourceText?: string;
   currency: string;
   demo?: boolean;
   createdAt: number;

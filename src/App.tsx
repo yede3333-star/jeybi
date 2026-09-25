@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { HashRouter, NavLink, Route, Routes, useLocation } from 'react-router';
+import { HashRouter, Link, NavLink, Route, Routes, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChartPie, House, List, Plus, Settings as SettingsIcon } from 'lucide-react';
+import { ChartPie, House, List, MessageSquareText, Plus, Settings as SettingsIcon } from 'lucide-react';
 import { SettingsProvider, useSettings } from './hooks/settings';
 import { ToastProvider, useToast } from './components/Toast';
 import { TxEditorProvider, useTxEditor } from './components/TxEditor';
@@ -38,6 +38,9 @@ const Reconcile = lazy(() => import('./pages/Reconcile'));
 const Zakat = lazy(() => import('./pages/Zakat'));
 const Currencies = lazy(() => import('./pages/Currencies'));
 const ErrorsPage = lazy(() => import('./pages/ErrorsPage'));
+// "اكتب يومك": the parser and its dictionary load with this page only.
+const SmartEntry = lazy(() => import('./pages/SmartEntry'));
+const SmartWords = lazy(() => import('./pages/SmartWords'));
 
 /** Same look as the static shell in index.html, so there is no flash between them. */
 function Splash() {
@@ -74,8 +77,15 @@ function BottomNav() {
 function Fab() {
   const { t } = useTranslation();
   const { openNew } = useTxEditor();
+  const { pathname } = useLocation();
+  if (pathname === '/write') return null;
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-20 z-30 mx-auto flex max-w-md justify-end px-4 safe-bottom">
+    <div className="pointer-events-none fixed inset-x-0 bottom-20 z-30 mx-auto flex max-w-md items-center justify-end gap-3 px-4 safe-bottom">
+      {pathname === '/' && (
+        <Link to="/write" className="pointer-events-auto flex h-12 items-center gap-2 rounded-full bg-surface px-4 font-bold text-teal-800 shadow-lg shadow-black/10 ring-1 ring-line active:scale-95 dark:text-teal-300">
+          <MessageSquareText className="size-5" />{t('smart.title')}
+        </Link>
+      )}
       <button onClick={() => openNew()} aria-label={t('tx.new')}
         className="pointer-events-auto flex size-16 items-center justify-center rounded-full bg-teal-700 text-white shadow-lg shadow-teal-900/30 active:scale-95 dark:bg-teal-600">
         <Plus className="size-8" />
@@ -205,6 +215,8 @@ function Shell() {
             <Route path="/settings/backup" element={<Backup />} />
             <Route path="/settings/currencies" element={<Currencies />} />
             <Route path="/settings/errors" element={<ErrorsPage />} />
+            <Route path="/settings/words" element={<SmartWords />} />
+            <Route path="/write" element={<SmartEntry />} />
             <Route path="/debts" element={<Debts />} />
             <Route path="/budgets" element={<Budgets />} />
             <Route path="/recurring" element={<RecurringPage />} />

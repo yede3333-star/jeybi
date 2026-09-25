@@ -2,6 +2,7 @@ import { db } from '../data/db';
 import type { Lang } from '../lib/money';
 import type { WeekStart } from '../lib/period';
 import type { BackupKey } from '../services/backupCrypto';
+import type { SmartRule } from '../services/smartParse';
 
 export interface ZakatSettings {
   basis: 'gold' | 'silver';
@@ -56,6 +57,8 @@ export interface Settings {
   zakat: ZakatSettings;
   /** Budget alerts already shown: "yyyy-MM:categoryId" → 80 | 100. */
   budgetAlerts: Record<string, number>;
+  /** "اكتب يومك": words learned from the user's corrections (normalised word → category/wallet). In backups. */
+  smartRules: Record<string, SmartRule>;
   // Android app
   /** Weekly encrypted backup to Documents/Jeybi: the key derived from the user's password (never the password itself). */
   autoBackupKey: BackupKey | null;
@@ -95,6 +98,7 @@ export const DEFAULT_SETTINGS: Settings = {
     includeReceivables: true, subtractPayables: true, hawlStart: null, lastPaidAt: null,
   },
   budgetAlerts: {},
+  smartRules: {},
   autoBackupKey: null,
   lastAutoBackupAt: null,
 };

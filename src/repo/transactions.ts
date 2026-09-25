@@ -29,6 +29,7 @@ export interface TxInput {
   rateE4?: number;
   recurringKey?: string;
   adjustment?: boolean;
+  sourceText?: string;
   demo?: boolean;
 }
 
@@ -95,6 +96,7 @@ function build(input: TxInput, splits: Split[], base: Partial<Transaction>, now:
     ...(input.origCurrency ? { origCurrency: input.origCurrency, origAmount: input.origAmount, rateE4: input.rateE4 } : {}),
     ...(input.recurringKey ?? base.recurringKey ? { recurringKey: input.recurringKey ?? base.recurringKey } : {}),
     ...(input.adjustment || base.adjustment ? { adjustment: true } : {}),
+    ...(input.sourceText ?? base.sourceText ? { sourceText: input.sourceText ?? base.sourceText } : {}),
     currency: base.currency ?? currency,
     ...(input.demo || base.demo ? { demo: true } : {}),
     createdAt: base.createdAt ?? now,

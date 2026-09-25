@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  Bug, BellRing, Coins, HandCoins, Lightbulb, Moon, PiggyBank, Repeat, Scale, Target,
+  BookA, Bug, BellRing, Coins, HandCoins, Lightbulb, Moon, PiggyBank, Repeat, Scale, Target,
   ChevronLeft, CloudUpload, Database, FlaskConical, FolderTree, HardDrive, Lock, RotateCcw, Trash2, Wallet, Zap,
 } from 'lucide-react';
 import { PageHeader, Segmented, Sheet } from '../components/ui';
@@ -152,6 +152,7 @@ export default function Settings() {
           <LinkRow to="/settings/wallets" icon={<Wallet className="size-5" />} label={t('settings.wallets')} />
           <LinkRow to="/settings/categories" icon={<FolderTree className="size-5" />} label={t('settings.categories')} />
           <LinkRow to="/settings/templates" icon={<Zap className="size-5" />} label={t('settings.templates')} />
+          <LinkRow to="/settings/words" icon={<BookA className="size-5" />} label={t('smart.wordsTitle')} hint={t('smart.wordsCount', { n: Object.keys(s.smartRules).length })} />
           <LinkRow to="/settings/trash" icon={<Trash2 className="size-5" />} label={t('settings.trash')} />
         </div>
 

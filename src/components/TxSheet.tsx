@@ -27,7 +27,24 @@ import { errorMessage } from '../services/errors';
 
 interface SplitRow { categoryId: ID | ''; amount: string }
 
-export default function TxSheet({ initialType, tx, onClose }: { initialType: EditType; tx?: Transaction; onClose: () => void }) {
+/** A draft (from "اكتب يومك") shown in the editor like a transaction, without being one yet. */
+function draftAsTx(d: TxInput): Transaction {
+  const splits = d.splits?.length ? d.splits : d.categoryId ? [{ categoryId: d.categoryId, amount: d.amount }] : [];
+  return {
+    id: '', type: d.type, amount: d.amount, walletId: d.walletId, toWalletId: d.toWalletId, splits, categoryIds: splits.map((x) => x.categoryId),
+    date: d.date, note: d.note ?? '', tags: d.tags ?? [], origCurrency: d.origCurrency, origAmount: d.origAmount, rateE4: d.rateE4,
+    currency: '', createdAt: 0, updatedAt: 0, deletedAt: null,
+  };
+}
+
+/**
+ * `draft` + `onDraft`: edits an entry that is not saved yet ("اكتب يومك"): the result goes back
+ * to `onDraft` instead of the database, and there is no receipt photo.
+ */
+export default function TxSheet({ initialType, tx: realTx, onClose, draft, onDraft }: {
+  initialType: EditType; tx?: Transaction; onClose: () => void; draft?: TxInput; onDraft?: (input: TxInput) => void;
+}) {
+  const tx = realTx ?? (draft ? draftAsTx(draft) : undefined);
   const { t } = useTranslation();
   const lang = useLang();
   const fmt = useFmt();
@@ -41,7 +58,7 @@ export default function TxSheet({ initialType, tx, onClose }: { initialType: Edi
   // Currency of the typed amount: base, or a foreign one converted with a manual rate.
   const [currency, setCurrency] = useState(tx?.origCurrency ?? settings.currency);
   const [rateStr, setRateStr] = useState(tx?.rateE4 ? rateToString(tx.rateE4) : '');
-  const [step, setStep] = useState<'amount' | 'details'>(tx ? 'details' : 'amount');
+  const [step, setStep] = useState<'amount' | 'details'>(tx && (realTx || tx.amount > 0 || tx.origAmount) ? 'details' : 'amount');
   const [walletId, setWalletId] = useState<ID | undefined>(tx?.walletId);
   const [toWalletId, setToWalletId] = useState<ID | undefined>(tx?.toWalletId);
   const [categoryId, setCategoryId] = useState<ID | undefined>(tx && tx.splits.length === 1 ? tx.splits[0].categoryId : undefined);
@@ -86,8 +103,8 @@ export default function TxSheet({ initialType, tx, onClose }: { initialType: Edi
 
   // existing transfer fee and receipt preview
   useEffect(() => {
-    if (tx?.type === 'transfer') void feeOf(tx).then((f) => f && setFee(minorToKeypad(f)));
-  }, [tx]);
+    if (realTx?.type === 'transfer') void feeOf(realTx).then((f) => f && setFee(minorToKeypad(f)));
+  }, [realTx]);
   useEffect(() => {
     let url: string | null = null;
     (async () => {
@@ -118,11 +135,18 @@ export default function TxSheet({ initialType, tx, onClose }: { initialType: Edi
     } else {
       input.categoryId = pickedCategory ?? categoryId;
     }
+    if (onDraft) {
+      // "اكتب يومك": validated when everything is saved together
+      if (input.amount <= 0) { setError(t('errors.amount')); return; }
+      onDraft(input);
+      onClose();
+      return;
+    }
     setBusy(true);
     try {
       if (receiptBlob) input.receiptId = await saveReceipt(receiptBlob);
-      if (tx) {
-        const { undo } = await updateTransaction(tx.id, input);
+      if (realTx) {
+        const { undo } = await updateTransaction(realTx.id, input);
         toast({ message: t('tx.updated'), undo });
       } else {
         const { undo } = await createTransaction(input);
@@ -141,7 +165,7 @@ export default function TxSheet({ initialType, tx, onClose }: { initialType: Edi
     } finally {
       setBusy(false);
     }
-  }, [type, amount, walletId, toWalletId, date, note, tags, receiptId, receiptBlob, fee, splitMode, splits, categoryId, tx, toast, t, fmt, onClose, foreign, rateE4, currency, keyed, settings.lastRates, categoryName]);
+  }, [type, amount, walletId, toWalletId, date, note, tags, receiptId, receiptBlob, fee, splitMode, splits, categoryId, realTx, onDraft, toast, t, fmt, onClose, foreign, rateE4, currency, keyed, settings.lastRates, categoryName]);
 
   const onPickCategory = (id: ID) => {
     setCategoryId(id);
@@ -309,7 +333,7 @@ export default function TxSheet({ initialType, tx, onClose }: { initialType: Edi
                 <SplitSquareHorizontal className="size-4" /> {t('tx.splitAction')}
               </button>
             )}
-            <div>
+            <div className={onDraft ? 'hidden' : undefined}>
               <span className="label">{t('tx.receipt')}</span>
               {receiptUrl ? (
                 <div className="flex items-center gap-3">
