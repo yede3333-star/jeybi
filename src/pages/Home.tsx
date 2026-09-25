@@ -22,6 +22,8 @@ import { getReserved } from '../repo/goals';
 import { useDayKey } from '../hooks/day';
 import { errorMessage } from '../services/errors';
 import { markHomeReady } from '../services/startupTiming';
+import { useImpactGuard } from '../components/Impact';
+import { deltasForTx } from '../repo/impact';
 
 // Reminders, indicators and tools: a separate chunk, mounted once the home screen is idle so they
 // never delay the first paint after unlocking.
@@ -69,6 +71,7 @@ export default function Home() {
   const s = useSettings();
   const nav = useNavigate();
   const toast = useToast();
+  const guard = useImpactGuard();
   const { openNew } = useTxEditor();
   const wallets = useWallets();
   const recent = useRecent(8);
@@ -94,7 +97,10 @@ export default function Home() {
     const tpl = tplArg ?? templates?.find((x) => x.id === id);
     if (!tpl) return;
     try {
+      const go = tpl.walletId ? await guard(deltasForTx({ type: tpl.type, amount: tpl.amount, walletId: tpl.walletId, date: Date.now() })) : { after: async () => {} };
+      if (!go) return;
       const { undo } = await applyTemplate(tpl);
+      await go.after();
       toast({ message: t('templates.applied', { name: tpl.name, amount: fmt.money(tpl.amount) }), undo });
     } catch (e) {
       if (e instanceof ValidationError && e.code === 'templateWallet') { setPickFor(tpl); return; }
@@ -142,20 +148,28 @@ export default function Home() {
       </section>
 
       <div className="no-scrollbar mt-3 flex gap-3 overflow-x-auto px-4 pb-1">
-        {wallets?.filter((w) => !w.archived).map((w) => (
-          <button key={w.id} onClick={() => nav(`/transactions?w=${w.id}`)} className="card flex w-40 shrink-0 flex-col gap-2 p-3 text-start">
-            <div className="flex items-center gap-2">
-              <IconBadge name={w.icon} color={w.color} size="sm" />
-              <span className="truncate text-sm font-semibold">{nameOf(w)}</span>
+        {wallets?.filter((w) => !w.archived).map((w) => {
+          const bal = balances?.byWallet.get(w.id) ?? 0;
+          const saved = reserved?.get(w.id) ?? 0;
+          return (
+            <div key={w.id} className={`card flex w-44 shrink-0 flex-col p-3 ${bal < 0 ? 'ring-2 ring-red-500/50' : ''}`}>
+              <button onClick={() => nav(`/transactions?w=${w.id}`)} className="flex flex-col gap-2 text-start">
+                <span className="flex items-center gap-2">
+                  <IconBadge name={w.icon} color={w.color} size="sm" />
+                  <span className="truncate text-sm font-semibold">{nameOf(w)}</span>
+                </span>
+                <span className={`num text-lg font-bold ${bal < 0 ? 'text-expense' : ''}`}>{fmt.money(bal)}</span>
+              </button>
+              {saved > 0 && (
+                // money set aside for goals stays in the wallet: say what is really free to spend
+                <button onClick={() => nav(`/goals?wallet=${w.id}`)} className="num mt-1 text-start text-xs text-muted underline decoration-dotted underline-offset-2">
+                  {t('goals.savedAvailable', { saved: fmt.money(saved), available: fmt.money(bal - saved) })}
+                </button>
+              )}
+              {bal < 0 && <Link to="/reconcile" className="mt-2 text-xs font-bold text-expense underline">{t('reconcile.action')}</Link>}
             </div>
-            <span className={`num text-lg font-bold ${(balances?.byWallet.get(w.id) ?? 0) < 0 ? 'text-expense' : ''}`}>
-              {fmt.money(balances?.byWallet.get(w.id) ?? 0)}
-            </span>
-            {!!reserved?.get(w.id) && (
-              <span className="num -mt-1 text-xs text-muted">{t('goals.reservedShort', { amount: fmt.money(reserved.get(w.id)!) })}</span>
-            )}
-          </button>
-        ))}
+          );
+        })}
       </div>
 
       {idle && <Suspense fallback={null}><HomeReminders /></Suspense>}

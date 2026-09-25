@@ -14,6 +14,8 @@ import { deleteTransaction } from '../repo/transactions';
 import { parseAmount, minorToKeypad } from '../lib/money';
 import { fromDay, toDay } from '../lib/periodParams';
 import { errorMessage } from '../services/errors';
+import { useImpactGuard } from '../components/Impact';
+import { deltasForDebt, deltasForDelete, deltasForRepayment } from '../repo/impact';
 
 export default function Debts() {
   const { t } = useTranslation();
@@ -97,6 +99,7 @@ function DebtDetail({ id, onClose, onEdit }: { id: ID; onClose: () => void; onEd
   const { t } = useTranslation();
   const fmt = useFmt();
   const toast = useToast();
+  const guard = useImpactGuard();
   const { walletName } = useNames();
   const data = useLiveQuery(() => getDebt(id), [id]);
   const [pay, setPay] = useState(false);
@@ -134,7 +137,10 @@ function DebtDetail({ id, onClose, onEdit }: { id: ID; onClose: () => void; onEd
                 <span className={`num font-semibold ${m.flow === 'in' ? 'text-income' : 'text-expense'}`}>{fmt.money(m.flow === 'in' ? m.amount : -m.amount, { sign: true })}</span>
                 {!principal && (
                   <button className="p-2 text-muted" aria-label={t('common.delete')} onClick={async () => {
+                    const go = await guard(deltasForDelete(m.id));
+                    if (!go) return;
                     const { undo } = await deleteTransaction(m.id);
+                    await go.after();
                     toast({ message: t('debts.paymentDeleted'), undo });
                   }}><Trash2 className="size-4" /></button>
                 )}
@@ -160,6 +166,7 @@ function DebtDetail({ id, onClose, onEdit }: { id: ID; onClose: () => void; onEd
 function PaymentForm({ st, onClose }: { st: DebtStatus; onClose: () => void }) {
   const { t } = useTranslation();
   const toast = useToast();
+  const guard = useImpactGuard();
   const fmt = useFmt();
   const wallets = useWallets() ?? [];
   const [amount, setAmount] = useState(minorToKeypad(st.remaining));
@@ -170,7 +177,10 @@ function PaymentForm({ st, onClose }: { st: DebtStatus; onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const save = async () => {
     try {
+      const go = await guard(deltasForRepayment(st.debt.direction, parseAmount(amount) ?? 0, walletId ?? ''));
+      if (!go) return;
       const { undo } = await addRepayment(st.debt.id, { amount: parseAmount(amount) ?? 0, walletId: walletId ?? '', date: fromDay(date) + 12 * 3600e3, note });
+      await go.after();
       toast({ message: t('debts.paymentSaved'), undo });
       onClose();
     } catch (e) {
@@ -197,6 +207,7 @@ function PaymentForm({ st, onClose }: { st: DebtStatus; onClose: () => void }) {
 function DebtForm({ debt, direction, onClose }: { debt?: Debt; direction: DebtDirection; onClose: () => void }) {
   const { t } = useTranslation();
   const toast = useToast();
+  const guard = useImpactGuard();
   const fmt = useFmt();
   const wallets = useWallets() ?? [];
   const [dir, setDir] = useState<DebtDirection>(debt?.direction ?? direction);
@@ -219,7 +230,10 @@ function DebtForm({ debt, direction, onClose }: { debt?: Debt; direction: DebtDi
         await updateDebt(debt.id, input);
         toast({ message: t('debts.updated') });
       } else {
+        const go = await guard(deltasForDebt(input));
+        if (!go) return;
         const { undo } = await createDebt(input);
+        await go.after();
         toast({ message: t('debts.saved'), undo });
       }
       onClose();

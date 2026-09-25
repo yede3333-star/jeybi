@@ -16,6 +16,8 @@ import { getReceipt } from '../repo/receipts';
 import { saveTemplate, templateFromTx } from '../repo/templates';
 import { formatNumber } from '../lib/money';
 import { rateToString } from '../services/currency';
+import { useImpactGuard } from '../components/Impact';
+import { deltasForDelete, deltasForTx } from '../repo/impact';
 
 export default function TxDetail() {
   const { id = '' } = useParams();
@@ -23,6 +25,7 @@ export default function TxDetail() {
   const fmt = useFmt();
   const nav = useNavigate();
   const toast = useToast();
+  const guard = useImpactGuard();
   const { openEdit } = useTxEditor();
   const names = useNames();
   const tx = useLiveQuery(() => getTransaction(id), [id]);
@@ -48,16 +51,23 @@ export default function TxDetail() {
   const isPrincipal = !!debt && debt.principalTxId === tx.id;
   const signed = tx.type === 'expense' || (isDebt && tx.flow === 'out') ? -tx.amount : tx.amount;
   const del = async () => {
+    // deleting an income can take a wallet below zero: warn first
+    const go = await guard(deltasForDelete(tx.id));
+    if (!go) return;
     const { undo } = await deleteTransaction(tx.id);
+    await go.after();
     toast({ message: t('tx.deleted'), undo });
     nav(-1);
   };
   const duplicate = async () => {
+    const go = await guard(deltasForTx({ type: tx.type, amount: tx.amount, walletId: tx.walletId, toWalletId: tx.toWalletId, date: Date.now(), fee: fee || 0 }));
+    if (!go) return;
     const { tx: copy, undo } = await createTransaction({
       type: tx.type, amount: tx.amount, walletId: tx.walletId, toWalletId: tx.toWalletId, splits: tx.splits,
       date: Date.now(), note: tx.note, tags: tx.tags, fee: fee || 0,
       ...(tx.origCurrency ? { origCurrency: tx.origCurrency, origAmount: tx.origAmount, rateE4: tx.rateE4 } : {}),
     });
+    await go.after();
     toast({ message: t('tx.duplicated'), undo });
     nav(`/tx/${copy.id}`, { replace: true });
   };

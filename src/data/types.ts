@@ -16,6 +16,8 @@ export interface Wallet {
   order: number;
   /** Last balance reconciliation (phase 2). */
   lastReconciledAt?: number;
+  /** No warning when an operation takes this wallet below zero (e.g. an overdraft account). */
+  allowNegative?: boolean;
   createdAt: number;
   updatedAt: number;
 }

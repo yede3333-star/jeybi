@@ -100,6 +100,8 @@ const fr: Dict = {
     lastWallet: 'Dernier portefeuille utilisé',
   },
   manage: {
+    allowNegative: 'Autoriser le solde négatif sans avertissement',
+    allowNegativeHint: 'Comme un compte à découvert : pas de message en passant sous zéro.',
     name: 'Nom', color: 'Couleur', icon: 'Icône', openingBalance: 'Solde initial', parent: 'Catégorie parente',
     noParent: 'Aucune (catégorie principale)', archive: 'Archiver', unarchive: 'Désarchiver', archived: 'Archivés',
     showArchived: 'Afficher les archivés', newWallet: 'Nouveau portefeuille', editWallet: 'Modifier le portefeuille',
@@ -171,6 +173,17 @@ const fr: Dict = {
     bannerDays: 'Dernière sauvegarde il y a {{days}} jours', bannerNever: 'Vous n’avez encore fait aucune sauvegarde',
     bannerHint: 'Vos données sont uniquement sur cet appareil et peuvent être perdues si le navigateur est effacé.',
     errors: { invalidJson: 'Ce fichier n’est pas un JSON valide.', notJeybi: 'Ce fichier n’est pas une sauvegarde Jeybi.', newerFormat: 'Sauvegarde créée par une version plus récente.', wrongPassword: 'Mot de passe incorrect (ou fichier abîmé). Vos données n’ont pas changé.' },
+  },
+  impact: {
+    title: 'Avant d’enregistrer',
+    negative: 'Le solde de {{wallet}} est de {{before}} ; après cette opération il sera de {{after}}.',
+    forgotIncome: 'Auriez-vous oublié un revenu ?',
+    savings: 'Cette opération prendra {{amount}} sur l’épargne de l’objectif « {{goal}} » dans {{wallet}}.',
+    savingsHint: 'Si vous continuez, le montant réservé à cet objectif est réduit automatiquement.',
+    continue: 'Continuer',
+    edit: 'Modifier',
+    releaseNote: 'Utilisé par une opération',
+    recurringNegative: '{{n}} opérations récurrentes enregistrées ; le solde de {{wallet}} est passé sous zéro. Revenu oublié ?',
   },
   smart: {
     noWalletCount: '{{n}} carte(s) sans portefeuille',
@@ -263,6 +276,10 @@ const fr: Dict = {
     howItWorks: 'Sans serveur : à l’ouverture de l’app, les opérations dues depuis la dernière ouverture sont ajoutées, une seule fois.',
   },
   goals: {
+    savedAvailable: 'Épargne : {{saved}} · Disponible : {{available}}',
+    inWallet: 'Objectifs avec de l’épargne dans {{wallet}}',
+    showAll: 'Tous les objectifs',
+    heldHere: 'Dans ce portefeuille : {{amount}}',
     title: 'Objectifs d’épargne', new: 'Nouvel objectif', edit: 'Modifier l’objectif', name: 'Nom de l’objectif', namePlaceholder: 'ex. : Mouton de l’Aïd', target: 'Montant visé',
     targetDate: 'Date visée', picture: 'Photo ou icône', choosePicture: 'Choisir une photo', add: 'Mettre de côté', withdraw: 'Retirer',
     added: 'Montant réservé', withdrawn: 'Montant libéré', of: 'sur {{target}}', reached: 'Objectif atteint !', late: 'Date visée dépassée',
@@ -273,6 +290,7 @@ const fr: Dict = {
     progress: 'Progression de l’épargne', saved: 'Épargné', monthlyNeeded: 'Nécessaire par mois',
   },
   reconcile: {
+    action: 'Rapprocher le solde',
     title: 'Rapprochement', intro: 'Comparez le solde de chaque portefeuille avec le solde réel (appli Bankily, espèces en poche…).',
     last: 'Dernier : {{date}}', never: 'Jamais vérifié', recorded: 'Solde enregistré', real: 'Solde réel', realHint: 'Tel qu’affiché dans l’appli bancaire, ou compté en espèces.',
     same: 'Les soldes correspondent', markChecked: 'Confirmer', difference: 'Écart', lessThanRecorded: 'Le réel est inférieur : une dépense n’a pas été saisie.',

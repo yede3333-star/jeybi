@@ -13,8 +13,11 @@ import { useFmt } from '../hooks/fmt';
 import { confirmPending, dismissPending, listPending, listRecurring, removeRecurring, runRecurring, saveRecurring, setRecurringActive } from '../repo/recurring';
 import { minorToKeypad, parseAmount } from '../lib/money';
 import { fromDay, toDay } from '../lib/periodParams';
+import { useImpactGuard } from '../components/Impact';
+import { deltasForTx } from '../repo/impact';
 
 export default function RecurringPage() {
+  const guard = useImpactGuard();
   const { t } = useTranslation();
   const fmt = useFmt();
   const toast = useToast();
@@ -39,7 +42,11 @@ export default function RecurringPage() {
                     <span className="block truncate font-semibold">{p.rule?.name ?? '—'}</span>
                     <span className="num block text-sm text-muted">{fmt.date(p.date, 'medium')} · {p.rule ? fmt.money(p.rule.amount) : ''}</span>
                   </span>
-                  <button className="btn-soft min-h-10 px-3" onClick={async () => { await confirmPending(p.id); toast({ message: t('recurring.confirmed') }); }} aria-label={t('common.confirm')}><Check className="size-4" /></button>
+                  <button className="btn-soft min-h-10 px-3" onClick={async () => {
+                    const go = p.rule ? await guard(deltasForTx({ type: p.rule.type, amount: p.rule.amount, walletId: p.rule.walletId, date: p.date })) : { after: async () => {} };
+                    if (!go) return;
+                    await confirmPending(p.id); await go.after(); toast({ message: t('recurring.confirmed') });
+                  }} aria-label={t('common.confirm')}><Check className="size-4" /></button>
                   <button className="btn-ghost min-h-10 px-3" onClick={() => dismissPending(p.id)} aria-label={t('recurring.skip')}><X className="size-4" /></button>
                 </div>
               ))}

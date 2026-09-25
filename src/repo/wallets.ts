@@ -14,7 +14,7 @@ export async function createWallet(data: { name: string; icon: string; color: st
   return w;
 }
 
-export async function updateWallet(id: ID, patch: Partial<Pick<Wallet, 'name' | 'icon' | 'color' | 'openingBalance' | 'archived' | 'order'>>, renamed = false) {
+export async function updateWallet(id: ID, patch: Partial<Pick<Wallet, 'name' | 'icon' | 'color' | 'openingBalance' | 'archived' | 'order' | 'allowNegative'>>, renamed = false) {
   const change: Partial<Wallet> = { ...patch, updatedAt: Date.now() };
   if (renamed) change.sysKey = undefined;
   await db.wallets.update(id, change);

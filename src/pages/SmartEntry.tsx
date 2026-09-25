@@ -22,6 +22,9 @@ import { listen, speechAvailable, type SpeechFailure } from '../services/speech'
 import { isNative, takeSharedText } from '../platform';
 import { minorToKeypad, parseAmount } from '../lib/money';
 import { logError } from '../services/errorLog';
+import { useImpactGuard } from '../components/Impact';
+import { deltasForDebt, deltasForTx } from '../repo/impact';
+import { addDeltas, type Deltas } from '../services/impact';
 
 const TxSheet = lazy(() => import('../components/TxSheet'));
 const DRAFT_KEY = 'jeybi:smart-draft';
@@ -70,6 +73,7 @@ export default function SmartEntry() {
   const lang = useLang();
   const s = useSettings();
   const toast = useToast();
+  const guard = useImpactGuard();
   const nav = useNavigate();
   const day = useDayKey();
   const { categories, wallets, walletName, categoryName, ready } = useNames();
@@ -179,7 +183,13 @@ export default function SmartEntry() {
     if (!cards.length || invalid.length) return;
     setBusy(true);
     try {
+      // the whole day at once: below zero / savings are checked on the sum per wallet
+      const all: Deltas = new Map();
+      for (const c of cards) addDeltas(all, c.draft.kind === 'tx' ? await deltasForTx(c.draft.input) : deltasForDebt(c.draft.input));
+      const go = await guard(all);
+      if (!go) return;
       const { count, undo } = await saveSmartEntries(cards.map((c) => c.draft), text.trim());
+      await go.after();
       setText('');
       setOverrides({});
       setManual([]);

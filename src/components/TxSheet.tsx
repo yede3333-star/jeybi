@@ -24,6 +24,8 @@ import { setSettings } from '../repo/settings';
 import { checkBudgetAlerts } from '../repo/budgets';
 import { useNames } from '../hooks/data';
 import { errorMessage } from '../services/errors';
+import { useImpactGuard } from './Impact';
+import { deltasForTx } from '../repo/impact';
 
 interface SplitRow { categoryId: ID | ''; amount: string }
 
@@ -50,6 +52,7 @@ export default function TxSheet({ initialType, tx: realTx, onClose, draft, onDra
   const fmt = useFmt();
   const settings = useSettings();
   const toast = useToast();
+  const guard = useImpactGuard();
   const wallets = useWallets() ?? [];
   const editing = !!tx;
 
@@ -141,6 +144,9 @@ export default function TxSheet({ initialType, tx: realTx, onClose, draft, onDra
     }
     setBusy(true);
     try {
+      // below zero or into savings: warn, the user decides (never blocked)
+      const go = await guard(deltasForTx(input, realTx?.id));
+      if (!go) return;
       if (receiptBlob) input.receiptId = await saveReceipt(receiptBlob);
       if (realTx) {
         const { undo } = await updateTransaction(realTx.id, input);
@@ -149,6 +155,7 @@ export default function TxSheet({ initialType, tx: realTx, onClose, draft, onDra
         const { undo } = await createTransaction(input);
         toast({ message: t(`tx.saved_${type}`, { amount: fmt.money(amount) }), undo });
       }
+      await go.after();
       if (foreign && rateE4) void setSettings({ lastRates: { ...settings.lastRates, [currency]: rateE4 } });
       if (type === 'expense') {
         // Budget alerts (80% / 100%) are shown right after the expense that crosses them.
@@ -162,7 +169,7 @@ export default function TxSheet({ initialType, tx: realTx, onClose, draft, onDra
     } finally {
       setBusy(false);
     }
-  }, [type, amount, walletId, toWalletId, date, note, tags, receiptId, receiptBlob, fee, splitMode, splits, categoryId, realTx, onDraft, toast, t, fmt, onClose, foreign, rateE4, currency, keyed, settings.lastRates, categoryName, active]);
+  }, [type, amount, walletId, toWalletId, date, note, tags, receiptId, receiptBlob, fee, splitMode, splits, categoryId, realTx, onDraft, toast, t, fmt, onClose, foreign, rateE4, currency, keyed, settings.lastRates, categoryName, active, guard]);
 
   // Quick entry: amount → wallet + category (either order) → saved on the second tap.
   const quick = !editing && !more;

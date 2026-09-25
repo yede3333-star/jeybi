@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Archive, ArchiveRestore, ArrowDown, ArrowUp, Check, Plus, Trash2 } from 'lucide-react';
 import type { Category, CategoryKind, ID, Template, Wallet } from '../data/types';
-import { PageHeader, Segmented, Sheet, Empty } from '../components/ui';
+import { PageHeader, Segmented, Sheet, Empty, Toggle } from '../components/ui';
 import { COLORS, ICON_NAMES, Icon, IconBadge } from '../components/Icon';
 import { CategorySelect, WalletPicker } from '../components/pickers';
 import { useToast } from '../components/Toast';
@@ -55,13 +55,19 @@ export function WalletsPage() {
   const active = wallets?.filter((w) => !w.archived) ?? [];
   const archived = wallets?.filter((w) => w.archived) ?? [];
 
-  const row = (w: Wallet) => (
-    <button key={w.id} onClick={() => setEdit(w)} className="flex min-h-16 w-full items-center gap-3 px-4 text-start active:bg-black/5">
-      <IconBadge name={w.icon} color={w.color} />
-      <span className="flex-1 font-semibold">{nameOf(w)}</span>
-      <span className="num font-bold">{fmt.money(balances?.byWallet.get(w.id) ?? 0)}</span>
-    </button>
-  );
+  const row = (w: Wallet) => {
+    const bal = balances?.byWallet.get(w.id) ?? 0;
+    return (
+      <div key={w.id} className="flex min-h-16 items-center gap-2 pe-2">
+        <button onClick={() => setEdit(w)} className="flex min-h-16 flex-1 items-center gap-3 ps-4 text-start active:bg-black/5">
+          <IconBadge name={w.icon} color={w.color} />
+          <span className="flex-1 font-semibold">{nameOf(w)}</span>
+          <span className={`num font-bold ${bal < 0 ? 'text-expense' : ''}`}>{fmt.money(bal)}</span>
+        </button>
+        {bal < 0 && !w.archived && <Link to="/reconcile" className="btn-danger min-h-9 px-2.5 text-xs">{t('reconcile.action')}</Link>}
+      </div>
+    );
+  };
 
   return (
     <div>
@@ -92,12 +98,16 @@ function WalletForm({ wallet, onClose }: { wallet: Wallet | null; onClose: () =>
   const [icon, setIcon] = useState(wallet?.icon ?? 'wallet');
   const [color, setColor] = useState(wallet?.color ?? COLORS[1]);
   const [opening, setOpening] = useState(wallet ? minorToKeypad(wallet.openingBalance) : '');
+  const [allowNegative, setAllowNegative] = useState(!!wallet?.allowNegative);
 
   const save = async () => {
     if (!name.trim()) return;
     const openingBalance = parseAmount(opening || '0') ?? 0;
-    if (wallet) await updateWallet(wallet.id, { name, icon, color, openingBalance }, name !== nameOf(wallet));
-    else await createWallet({ name, icon, color, openingBalance });
+    if (wallet) await updateWallet(wallet.id, { name, icon, color, openingBalance, allowNegative }, name !== nameOf(wallet));
+    else {
+      const w = await createWallet({ name, icon, color, openingBalance });
+      if (allowNegative) await updateWallet(w.id, { allowNegative });
+    }
     onClose();
   };
   const remove = async () => {
@@ -120,6 +130,10 @@ function WalletForm({ wallet, onClose }: { wallet: Wallet | null; onClose: () =>
           <input id="wopen" className="input num" dir="ltr" inputMode="decimal" placeholder="0" value={opening} onChange={(e) => setOpening(e.target.value)} />
         </div>
         <IconColorPicker icon={icon} color={color} onIcon={setIcon} onColor={setColor} />
+        <div className="flex items-center gap-3 rounded-xl bg-black/[0.03] p-3 dark:bg-white/[0.04]">
+          <span className="flex-1"><span className="block text-sm font-semibold">{t('manage.allowNegative')}</span><span className="block text-xs text-muted">{t('manage.allowNegativeHint')}</span></span>
+          <Toggle checked={allowNegative} onChange={setAllowNegative} label={t('manage.allowNegative')} />
+        </div>
         {wallet && (
           <div className="grid grid-cols-2 gap-2">
             <button className="btn-soft" onClick={async () => { await updateWallet(wallet.id, { archived: !wallet.archived }); onClose(); }}>

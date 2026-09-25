@@ -8,6 +8,7 @@ import { ToastProvider, useToast } from './components/Toast';
 import { TxEditorProvider, useTxEditor } from './components/TxEditor';
 import { LockGate, markUnlocked } from './components/Lock';
 import { FileShareProvider } from './components/FileShare';
+import { ImpactProvider } from './components/Impact';
 import { initDatabase, requestPersistentStorage } from './repo/init';
 import { logError } from './services/errorLog';
 import i18n from './i18n';
@@ -113,8 +114,16 @@ function BackgroundJobs() {
     ric(async () => {
       const { runRecurring } = await import('./repo/recurring');
       const r = await runRecurring().catch((e) => { logError(e, 'recurring'); return { created: 0, pending: 0 }; });
-      if (r.created) toast({ message: t('recurring.autoCreated', { n: r.created }) });
-      else if (r.pending) toast({ message: t('reminders.pending', { n: r.pending }) });
+      if (r.created) {
+        const { negativeNow } = await import('./repo/impact');
+        const neg = await negativeNow().catch(() => []);
+        if (neg.length) {
+          const { db } = await import('./data/db');
+          const w = await db.wallets.get(neg[0].walletId);
+          const name = w ? (w.sysKey ? t(`sys.${w.sysKey}`) : w.name) : '';
+          toast({ message: t('impact.recurringNegative', { n: r.created, wallet: name }), tone: 'error', duration: 8000 });
+        } else toast({ message: t('recurring.autoCreated', { n: r.created }) });
+      } else if (r.pending) toast({ message: t('reminders.pending', { n: r.pending }) });
     });
     // Errors that escaped the app's own handling: tell the user once, details are in the error log.
     const onUnexpected = () => toast({ message: t('errors.unexpectedLogged'), tone: 'error' });
@@ -244,11 +253,13 @@ function Gate() {
   if (!s.onboarded) return <Suspense fallback={<Splash />}><Onboarding /></Suspense>;
   return (
     <LockGate>
-      <TxEditorProvider>
-        <FileShareProvider>
-          <Shell />
-        </FileShareProvider>
-      </TxEditorProvider>
+      <ImpactProvider>
+        <TxEditorProvider>
+          <FileShareProvider>
+            <Shell />
+          </FileShareProvider>
+        </TxEditorProvider>
+      </ImpactProvider>
     </LockGate>
   );
 }

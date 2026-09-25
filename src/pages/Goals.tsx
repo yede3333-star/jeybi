@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Camera, Check, Minus, Pencil, PiggyBank, Plus, Trash2 } from 'lucide-react';
@@ -10,7 +11,7 @@ import { DateField } from '../components/DatePicker';
 import { useToast } from '../components/Toast';
 import { useNames, useWallets } from '../hooks/data';
 import { useFmt } from '../hooks/fmt';
-import { goalMovesOf, listGoals, moveGoalMoney, removeGoal, saveGoal, type GoalProgress } from '../repo/goals';
+import { goalMovesOf, heldInWallet, listGoals, moveGoalMoney, removeGoal, saveGoal, type GoalProgress } from '../repo/goals';
 import { getReceipt, saveReceipt } from '../repo/receipts';
 import { compressImage } from '../services/image';
 import { minorToKeypad, parseAmount } from '../lib/money';
@@ -39,7 +40,12 @@ export function GoalAvatar({ goal, size = 'md' }: { goal: Goal; size?: 'md' | 'l
 export default function Goals() {
   const { t } = useTranslation();
   const fmt = useFmt();
-  const goals = useLiveQuery(listGoals, []);
+  const allGoals = useLiveQuery(listGoals, []);
+  const [params, setParams] = useSearchParams();
+  const walletFilter = params.get('wallet');
+  const held = useLiveQuery(() => (walletFilter ? heldInWallet(walletFilter) : Promise.resolve(null)), [walletFilter]);
+  const { walletName } = useNames();
+  const goals = held ? allGoals?.filter((g) => (held.get(g.goal.id) ?? 0) > 0) : allGoals;
   const [edit, setEdit] = useState<Goal | 'new' | null>(null);
   const [open, setOpen] = useState<ID | null>(null);
   const opened = goals?.find((g) => g.goal.id === open);
@@ -50,6 +56,12 @@ export default function Goals() {
         <button className="btn-ghost size-11 min-h-11 rounded-full p-0" onClick={() => setEdit('new')} aria-label={t('common.add')}><Plus className="size-6" /></button>
       } />
       <div className="space-y-3 px-4">
+        {walletFilter && (
+          <div className="flex items-center gap-2 rounded-xl bg-teal-600/10 px-3 py-2 text-sm">
+            <span className="flex-1 font-semibold">{t('goals.inWallet', { wallet: walletName(walletFilter) })}</span>
+            <button className="font-semibold text-teal-700 underline dark:text-teal-300" onClick={() => setParams({}, { replace: true })}>{t('goals.showAll')}</button>
+          </div>
+        )}
         {goals && goals.length === 0 && <Empty icon={<PiggyBank className="size-10" />} title={t('goals.empty')} hint={t('goals.emptyHint')}
           action={<button className="btn-primary mt-2" onClick={() => setEdit('new')}><Plus className="size-5" />{t('goals.new')}</button>} />}
         {goals?.map((g) => (
@@ -59,6 +71,7 @@ export default function Goals() {
               <div className="min-w-0 flex-1">
                 <p className="truncate font-bold">{g.goal.name}</p>
                 <p className="num text-sm text-muted">{fmt.money(g.saved)} / {fmt.money(g.goal.target)}</p>
+                {held && <p className="num text-xs font-semibold text-teal-700 dark:text-teal-300">{t('goals.heldHere', { amount: fmt.money(held.get(g.goal.id) ?? 0) })}</p>}
               </div>
               <span className="num text-lg font-extrabold">{fmt.pct(g.pct)}</span>
             </div>

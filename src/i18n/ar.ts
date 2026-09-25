@@ -97,6 +97,8 @@ const ar = {
     lastWallet: 'آخر محفظة مستعملة',
   },
   manage: {
+    allowNegative: 'السماح بالرصيد السالب دون تحذير',
+    allowNegativeHint: 'مثل حساب بسحب على المكشوف: لا رسالة عند النزول تحت الصفر.',
     name: 'الاسم', color: 'اللون', icon: 'الأيقونة', openingBalance: 'الرصيد الافتتاحي', parent: 'تصنيف رئيسي',
     noParent: 'بدون (تصنيف رئيسي)', archive: 'أرشفة', unarchive: 'إلغاء الأرشفة', archived: 'مؤرشفة',
     showArchived: 'عرض المؤرشفة', newWallet: 'محفظة جديدة', editWallet: 'تعديل المحفظة',
@@ -168,6 +170,17 @@ const ar = {
     bannerDays: 'مرّ {{days}} يومًا على آخر نسخة احتياطية', bannerNever: 'لم تحفظ أي نسخة احتياطية بعد',
     bannerHint: 'بياناتك على هذا الجهاز فقط، وقد تضيع إن مُسحت بيانات المتصفح.',
     errors: { invalidJson: 'الملف ليس JSON صالحًا.', notJeybi: 'هذا الملف ليس نسخة من جيبي.', newerFormat: 'النسخة من إصدار أحدث من التطبيق.', wrongPassword: 'كلمة المرور غير صحيحة (أو الملف تالف). لم يتغيّر شيء في بياناتك.' },
+  },
+  impact: {
+    title: 'تنبيه قبل الحفظ',
+    negative: 'رصيد {{wallet}} الآن {{before}}، وسيصبح بعد هذه العملية {{after}}.',
+    forgotIncome: 'هل نسيت تسجيل دخل؟',
+    savings: 'هذه العملية ستأخذ {{amount}} من مدخرات هدف «{{goal}}» في {{wallet}}.',
+    savingsHint: 'إن تابعت، يُنقص المبلغ المخصص لهذا الهدف تلقائيًا.',
+    continue: 'متابعة',
+    edit: 'تعديل',
+    releaseNote: 'استُعمل في عملية',
+    recurringNegative: 'سُجّلت {{n}} عمليات متكررة، وصار رصيد {{wallet}} سالبًا. هل نسيت تسجيل دخل؟',
   },
   smart: {
     noWalletCount: '{{n}} بطاقة بلا محفظة',
@@ -260,6 +273,10 @@ const ar = {
     howItWorks: 'لا يوجد خادم: عند فتح التطبيق تُضاف كل العمليات المستحقة منذ آخر فتح مرة واحدة فقط.',
   },
   goals: {
+    savedAvailable: 'للادخار: {{saved}} · المتاح: {{available}}',
+    inWallet: 'الأهداف التي لها مدخرات في {{wallet}}',
+    showAll: 'كل الأهداف',
+    heldHere: 'في هذه المحفظة: {{amount}}',
     title: 'أهداف الادخار', new: 'هدف جديد', edit: 'تعديل الهدف', name: 'اسم الهدف', namePlaceholder: 'مثلًا: خروف العيد', target: 'المبلغ المطلوب',
     targetDate: 'التاريخ المستهدف', picture: 'صورة أو أيقونة', choosePicture: 'اختيار صورة', add: 'ادّخار مبلغ', withdraw: 'سحب من الهدف',
     added: 'خُصّص المبلغ للهدف', withdrawn: 'أُعيد المبلغ', of: 'من {{target}}', reached: 'تحقق الهدف!', late: 'فات الموعد المستهدف',
@@ -270,6 +287,7 @@ const ar = {
     progress: 'تقدم الادخار', saved: 'المُدّخر', monthlyNeeded: 'المطلوب شهريًا',
   },
   reconcile: {
+    action: 'مطابقة الرصيد',
     title: 'مطابقة الرصيد', intro: 'قارن رصيد كل محفظة في التطبيق بالرصيد الحقيقي (تطبيق بنكيلي، النقد في جيبك…).',
     last: 'آخر مطابقة: {{date}}', never: 'لم تُطابَق بعد', recorded: 'الرصيد المسجَّل', real: 'الرصيد الحقيقي', realHint: 'كما يظهر في التطبيق البنكي أو ما تعدّه نقدًا.',
     same: 'الرصيدان متطابقان', markChecked: 'تأكيد المطابقة', difference: 'الفرق', lessThanRecorded: 'الحقيقي أقل من المسجَّل: هناك مصروف لم يُسجَّل.',

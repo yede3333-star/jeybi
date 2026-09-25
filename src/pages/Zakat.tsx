@@ -14,6 +14,8 @@ import { recordZakatPayment, updateZakatSettings, zakatSnapshot } from '../repo/
 import { formatHijri, NISAB_GRAMS } from '../services/zakat';
 import { minorToKeypad, parseAmount } from '../lib/money';
 import { fromDay, toDay } from '../lib/periodParams';
+import { useImpactGuard } from '../components/Impact';
+import { deltasForTx } from '../repo/impact';
 
 export default function Zakat() {
   const { t } = useTranslation();
@@ -121,13 +123,17 @@ function PaySheet({ due, onClose }: { due: number; onClose: () => void }) {
   const fmt = useFmt();
   const lang = useLang();
   const toast = useToast();
+  const guard = useImpactGuard();
   const { wallets } = useNames();
   const [amount, setAmount] = useState(minorToKeypad(due));
   const [walletId, setWalletId] = useState<ID | undefined>(undefined);
   const save = async () => {
     const v = parseAmount(amount) ?? 0;
     if (!v || !walletId) return;
+    const go = await guard(deltasForTx({ type: 'expense', amount: v, walletId, date: Date.now() }));
+    if (!go) return;
     const { undo } = await recordZakatPayment(walletId, v, `${t('sys.zakat')} ${formatHijri(Date.now(), lang)}`);
+    await go.after();
     toast({ message: t('zakat.recorded'), undo });
     onClose();
   };

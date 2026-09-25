@@ -51,6 +51,13 @@ export async function goalMovesOf(goalId: ID): Promise<GoalMove[]> {
   return (await db.goalMoves.where('goalId').equals(goalId).toArray()).sort((a, b) => b.date - a.date);
 }
 
+/** How much each goal holds in one wallet. */
+export async function heldInWallet(walletId: ID): Promise<Map<ID, number>> {
+  const m = new Map<ID, number>();
+  for (const mv of await db.goalMoves.where('walletId').equals(walletId).toArray()) m.set(mv.goalId, (m.get(mv.goalId) ?? 0) + mv.amount);
+  return m;
+}
+
 export async function getReserved(): Promise<Map<ID, number>> {
   return reservedByWallet(await db.goalMoves.toArray());
 }
