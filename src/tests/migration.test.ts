@@ -22,9 +22,11 @@ const expected = phase1.expected;
 
 // The expected month/week/year totals are what phase 1 showed in the user's time zone (Nouakchott,
 // UTC+0); calendar periods depend on the zone, so compare in that zone even when CI runs elsewhere.
-const originalTz = process.env.TZ;
-beforeAll(() => { process.env.TZ = 'Africa/Nouakchott'; });
-afterAll(() => { if (originalTz === undefined) delete process.env.TZ; else process.env.TZ = originalTz; });
+// (the app tsconfig has no Node types: reach process.env without them)
+const env = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env;
+const originalTz = env.TZ;
+beforeAll(() => { env.TZ = 'Africa/Nouakchott'; });
+afterAll(() => { if (originalTz === undefined) delete env.TZ; else env.TZ = originalTz; });
 
 /** Recreates the phase-1 database exactly as it exists on a phone, then lets the app open it. */
 async function loadPhase1Database(dump: Dump) {
