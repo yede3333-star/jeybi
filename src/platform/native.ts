@@ -10,6 +10,7 @@ import { AndroidBiometryStrength, BiometricAuth, BiometryError, BiometryErrorTyp
 import { runBackHandler, setSharedText } from '.';
 import { NOTIFY_IDS, type PlannedNotification } from '../services/notifyPlan';
 import { logError } from '../services/errorLog';
+import type { SpeechEngine } from '../services/dictation';
 
 /** Our own small plugin (android/app/src/main/java/com/yede/jeybi/DownloadsPlugin.java). */
 interface DownloadsPlugin {
@@ -271,11 +272,6 @@ export async function pickPhoto(source: 'camera' | 'gallery'): Promise<Blob | nu
 
 // ---------------- Voice input ("اكتب يومك") ----------------
 
-export type SpeechFailure = 'unavailable' | 'denied' | 'network' | 'noSpeech' | 'cancelled' | 'other';
-export class SpeechError extends Error {
-  constructor(public code: SpeechFailure) { super(code); }
-}
-
 export async function speechAvailable(): Promise<boolean> {
   try {
     const { SpeechRecognition } = await import('@capgo/capacitor-speech-recognition');
@@ -285,22 +281,57 @@ export async function speechAvailable(): Promise<boolean> {
   }
 }
 
-/** Listens once with the phone's recogniser (Google's dialog) and returns what was heard. */
-export async function listenOnce(language: string): Promise<string> {
-  const { SpeechRecognition } = await import('@capgo/capacitor-speech-recognition');
-  if (!(await SpeechRecognition.available()).available) throw new SpeechError('unavailable');
-  const perm = await SpeechRecognition.requestPermissions();
-  if (perm.speechRecognition !== 'granted') throw new SpeechError('denied');
-  try {
-    const r = await SpeechRecognition.start({ language, maxResults: 1, popup: true, partialResults: false });
-    return r.matches?.[0] ?? '';
-  } catch (e) {
-    const m = String((e as Error)?.message ?? e);
-    if (/network|internet|server|offline|connect/i.test(m)) throw new SpeechError('network');
-    if (/cancel/i.test(m)) throw new SpeechError('cancelled');
-    if (/no match|no speech|not recogni|didn|timeout|silence/i.test(m)) throw new SpeechError('noSpeech');
-    if (/permission|denied/i.test(m)) throw new SpeechError('denied');
-    logError(e, 'speech:native');
-    throw new SpeechError('other');
-  }
+/**
+ * The phone's recogniser, inline (no Google dialog), for services/dictation.ts. Android ends a
+ * session at every pause ("stopped", reason "silence"/"results"); the dictation restarts it.
+ * The start/stop beep is muted where the phone allows it.
+ */
+export function androidSpeechEngine(): SpeechEngine {
+  let handles: Array<{ remove: () => Promise<void> }> = [];
+  let permitted = false;
+  const clear = async () => {
+    const old = handles;
+    handles = [];
+    for (const h of old) await h.remove().catch(() => {});
+  };
+  return {
+    async start(lang, h) {
+      const { SpeechRecognition } = await import('@capgo/capacitor-speech-recognition');
+      if (!permitted) {
+        if (!(await SpeechRecognition.available()).available) throw { code: 'unavailable' };
+        if ((await SpeechRecognition.requestPermissions()).speechRecognition !== 'granted') throw { code: 'denied' };
+        permitted = true;
+      }
+      await clear();
+      let done = false; // one "end" per session: an error already handled suppresses the "stopped" after it
+      handles.push(await SpeechRecognition.addListener('partialResults', (e) => {
+        const t = e.matches?.[0];
+        if (t) h.partial(t);
+      }));
+      handles.push(await SpeechRecognition.addListener('error', (e) => {
+        const c = String(e.code ?? '');
+        if (c === 'NO_MATCH' || c === 'SPEECH_TIMEOUT') return; // a pause: the "stopped" that follows restarts
+        done = true;
+        if (c === 'INSUFFICIENT_PERMISSIONS') h.error('denied');
+        else if (/NETWORK|SERVER/.test(c)) h.error('network');
+        else {
+          logError(new Error(`speech ${c}: ${e.message}`), 'speech:native');
+          h.error('other');
+        }
+      }));
+      handles.push(await SpeechRecognition.addListener('listeningState', (e) => {
+        if ((e.state === 'stopped' || e.status === 'stopped') && !done) {
+          done = true;
+          h.ended();
+        }
+      }));
+      // With partialResults the call resolves as soon as listening starts; text comes as events.
+      await SpeechRecognition.start({ language: lang, maxResults: 1, popup: false, partialResults: true, muteRecognizerBeep: true });
+    },
+    async stop() {
+      const { SpeechRecognition } = await import('@capgo/capacitor-speech-recognition');
+      await clear();
+      await SpeechRecognition.stop().catch(() => {});
+    },
+  };
 }

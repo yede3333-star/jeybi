@@ -190,6 +190,11 @@ const fr: Dict = {
     recurringNegative: '{{n}} opérations récurrentes enregistrées ; le solde de {{wallet}} est passé sous zéro. Revenu oublié ?',
   },
   smart: {
+    voice: {
+      listening: 'J’écoute… parlez librement, les pauses ne m’arrêtent pas', stop: 'Arrêter', stopped: 'Écoute arrêtée. Relisez le texte puis touchez « Analyser ».',
+      endSilence: 'Écoute arrêtée après 8 secondes de silence. Le texte est conservé.', endMax: 'Écoute arrêtée après 3 minutes. Le texte est conservé.',
+      endBackground: 'Écoute arrêtée en quittant l’app. Le texte est conservé.', review: 'Relisez et corrigez le texte, puis touchez « Analyser ».',
+    },
     noWalletCount: '{{n}} carte(s) sans portefeuille',
     applyToAll: 'Appliquer à tout',
     applyToAllTitle: 'Portefeuille pour les cartes sans portefeuille ({{n}})',

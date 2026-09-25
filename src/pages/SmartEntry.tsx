@@ -1,9 +1,9 @@
 // "اكتب يومك": write the day in one sentence, review the entries it gives, then save them all.
 // Nothing is saved before "حفظ الكل". The parser + dictionary are in this page's chunk only.
-import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeftRight, CheckCheck, HandCoins, Loader2, Mic, Pencil, Plus, Sparkles, Trash2, TriangleAlert, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowLeftRight, CheckCheck, HandCoins, Loader2, Mic, Pencil, Plus, Sparkles, Square, Trash2, TriangleAlert, TrendingDown, TrendingUp } from 'lucide-react';
 import { PageHeader, Segmented, Sheet } from '../components/ui';
 import { WalletPicker } from '../components/pickers';
 import { useToast } from '../components/Toast';
@@ -18,10 +18,10 @@ import type { TxInput } from '../repo/transactions';
 import type { DebtInput } from '../repo/debts';
 import type { DebtDirection, ID } from '../data/types';
 import { errorMessage } from '../services/errors';
-import { listen, speechAvailable, type SpeechFailure } from '../services/speech';
+import { createSpeechEngine, speechAvailable, speechLang } from '../services/speech';
+import { appendPiece, Dictation, type DictationEnd } from '../services/dictation';
 import { isNative, takeSharedText } from '../platform';
 import { minorToKeypad, parseAmount } from '../lib/money';
-import { logError } from '../services/errorLog';
 import { useImpactGuard } from '../components/Impact';
 import { deltasForDebt, deltasForTx } from '../repo/impact';
 import { addDeltas, type Deltas } from '../services/impact';
@@ -84,7 +84,14 @@ export default function SmartEntry() {
   const [editing, setEditing] = useState<{ card: Card; manualNew?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [mic, setMic] = useState<'hidden' | 'idle' | 'listening'>('hidden');
+  const [partial, setPartial] = useState('');
+  const [elapsed, setElapsed] = useState(0);
+  const dictation = useRef<Dictation | null>(null);
+  // After voice input nothing is analysed by itself: the user reviews the text, then taps "تحليل".
+  const [voiceUsed, setVoiceUsed] = useState(false);
+  const [analyzed, setAnalyzed] = useState<string | null>(null);
   const deferred = useDeferredValue(text);
+  const source = voiceUsed ? analyzed ?? '' : deferred;
 
   useEffect(() => writeDraft(text), [text]);
   // A text shared while this screen is open
@@ -97,14 +104,14 @@ export default function SmartEntry() {
 
   // ---- parse (instant: every keystroke, deferred so typing stays smooth)
   const result = useMemo(() => {
-    if (!ready || !deferred.trim()) return { entries: [], unknown: [] };
+    if (!ready || !source.trim()) return { entries: [], unknown: [] };
     const ar = i18n.getFixedT('ar'), fr = i18n.getFixedT('fr');
-    return parseDay(deferred, {
+    return parseDay(source, {
       categories: categories ?? [], wallets: wallets ?? [], labels: (k) => [ar(`sys.${k}`), fr(`sys.${k}`)],
       baseCurrency: s.currency, lastRates: s.lastRates, rules: s.smartRules, now: Date.now(),
     });
     // `day`: a new day re-reads "today" / "yesterday"
-  }, [deferred, ready, categories, wallets, s.lastWalletId, s.currency, s.lastRates, s.smartRules, day]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [source, ready, categories, wallets, s.lastWalletId, s.currency, s.lastRates, s.smartRules, day]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cards = useMemo<Card[]>(() => {
     const out: Card[] = [];
@@ -164,18 +171,52 @@ export default function SmartEntry() {
   };
 
   // ---- voice
+  // Continuous: listens until "إيقاف" (restarting after each pause), each piece added after the text.
   const speak = async () => {
+    if (dictation.current?.listening) return;
+    setVoiceUsed(true);
+    setAnalyzed(null);
+    const d = new Dictation(await createSpeechEngine(), speechLang(lang), {
+      onPartial: setPartial,
+      onCommit: (piece) => setText((cur) => appendPiece(cur, piece)),
+      onEnd: (reason: DictationEnd) => {
+        setMic('idle');
+        setPartial('');
+        dictation.current = null;
+        const msg: Record<DictationEnd, string> = {
+          user: 'smart.voice.stopped', silence: 'smart.voice.endSilence', max: 'smart.voice.endMax', background: 'smart.voice.endBackground',
+          unavailable: 'smart.speech.unavailable', denied: 'smart.speech.denied', network: 'smart.speech.network', other: 'smart.speech.other',
+        };
+        const bad = reason === 'unavailable' || reason === 'denied' || reason === 'network' || reason === 'other';
+        toast({ message: t(msg[reason]), tone: bad ? 'error' : 'default', duration: 6000 });
+      },
+    });
+    dictation.current = d;
     setMic('listening');
-    try {
-      const heard = (await listen(lang)).trim();
-      if (heard) setText((cur) => (cur.trim() ? `${cur.trim()}، ${heard}` : heard));
-    } catch (e) {
-      const code = (e as { code?: SpeechFailure }).code ?? 'other';
-      if (code === 'other') logError(e, 'speech');
-      if (code !== 'cancelled') toast({ message: t(`smart.speech.${code}`), tone: 'error', duration: 6000 });
-    } finally {
-      setMic('idle');
-    }
+    setElapsed(0);
+    await d.start();
+  };
+  const stopSpeaking = () => void dictation.current?.stop('user');
+
+  // timer + stop when leaving the app (call, home button) or this screen; what was heard is kept
+  useEffect(() => {
+    if (mic !== 'listening') return;
+    const timer = window.setInterval(() => setElapsed(Math.floor((dictation.current?.elapsedMs ?? 0) / 1000)), 500);
+    const away = () => void dictation.current?.stop('background');
+    const onVis = () => { if (document.visibilityState === 'hidden') away(); };
+    const onApp = (e: Event) => { if (!(e as CustomEvent<boolean>).detail) away(); };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('jeybi:app-active', onApp);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('jeybi:app-active', onApp);
+    };
+  }, [mic]);
+  useEffect(() => () => void dictation.current?.stop('background'), []);
+  const analyze = () => {
+    (document.activeElement as HTMLElement | null)?.blur();
+    if (voiceUsed) setAnalyzed(text);
   };
 
   // ---- save all
@@ -216,21 +257,38 @@ export default function SmartEntry() {
             aria-label={t('smart.title')}
             dir="auto"
           />
-          <div className="mt-2 flex items-center gap-2">
-            {mic !== 'hidden' && (
-              <button type="button" className={`btn-soft size-12 rounded-full p-0 ${mic === 'listening' ? 'animate-pulse' : ''}`} onClick={speak} disabled={mic === 'listening'} aria-label={t('smart.speak')}>
-                {mic === 'listening' ? <Loader2 className="size-5 animate-spin" /> : <Mic className="size-5" />}
+          {mic === 'listening' ? (
+            <div className="mt-2 space-y-2" role="status" aria-live="polite">
+              {partial && <p className="rounded-lg bg-black/[0.04] px-3 py-2 text-muted italic dark:bg-white/[0.05]" dir="auto">{partial}…</p>}
+              <div className="flex items-center gap-3">
+                <span className="relative flex size-4 shrink-0">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-500 opacity-60" />
+                  <span className="relative inline-flex size-4 rounded-full bg-red-600" />
+                </span>
+                <span className="flex-1 text-sm font-semibold">{t('smart.voice.listening')}</span>
+                <span className="num text-sm text-muted" dir="ltr">{String(Math.floor(elapsed / 60)).padStart(2, '0')}:{String(elapsed % 60).padStart(2, '0')}</span>
+              </div>
+              <button type="button" className="btn w-full bg-red-600 text-lg text-white active:bg-red-700" onClick={stopSpeaking}>
+                <Square className="size-5 fill-current" />{t('smart.voice.stop')}
               </button>
-            )}
-            <span className="flex-1 text-xs text-muted">{t(mic === 'listening' ? 'smart.listening' : 'smart.hint')}</span>
-            {text && <button type="button" className="btn-ghost min-h-10 px-3 text-sm" onClick={() => { setText(''); setOverrides({}); setManual([]); setHandled(new Set()); }}>{t('smart.clear')}</button>}
-            <button type="button" className="btn-soft min-h-10 px-3 text-sm" onClick={() => (document.activeElement as HTMLElement | null)?.blur()}>
-              <Sparkles className="size-4" />{t('smart.analyze')}
-            </button>
-          </div>
+            </div>
+          ) : (
+            <div className="mt-2 flex items-center gap-2">
+              {mic !== 'hidden' && (
+                <button type="button" className="btn-soft size-12 rounded-full p-0" onClick={() => void speak()} aria-label={t('smart.speak')}>
+                  <Mic className="size-5" />
+                </button>
+              )}
+              <span className="flex-1 text-xs text-muted">{t(voiceUsed && analyzed !== text && text.trim() ? 'smart.voice.review' : 'smart.hint')}</span>
+              {text && <button type="button" className="btn-ghost min-h-10 px-3 text-sm" onClick={() => { setText(''); setOverrides({}); setManual([]); setHandled(new Set()); setVoiceUsed(false); setAnalyzed(null); }}>{t('smart.clear')}</button>}
+              <button type="button" className={`${voiceUsed && analyzed !== text && text.trim() ? 'btn-primary' : 'btn-soft'} min-h-10 px-3 text-sm`} onClick={analyze}>
+                <Sparkles className="size-4" />{t('smart.analyze')}
+              </button>
+            </div>
+          )}
         </div>
 
-        {deferred.trim() && <Highlight text={deferred} entries={result.entries} unknown={result.unknown} />}
+        {source.trim() && <Highlight text={source} entries={result.entries} unknown={result.unknown} />}
 
         {unknown.length > 0 && (
           <div className="space-y-2">
