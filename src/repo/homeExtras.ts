@@ -5,7 +5,7 @@ import { db } from '../data/db';
 import { computeInsights, insightsRange, type Insights } from '../services/insights';
 import { hawlStatus } from '../services/zakat';
 import { monthBudgetStatuses, monthKey, type BudgetStatus } from './budgets';
-import { debtSummary, type DebtSummary } from './debts';
+import { debtSummary, EMPTY_DEBT_SUMMARY, type DebtSummary } from './debts';
 import { walletsToReconcile } from './reconcile';
 import { getBalances } from './summary';
 import { getSettings } from './settings';
@@ -30,7 +30,7 @@ export async function loadHomeExtras(part: 'reminders' | 'insights', now = Date.
   const [pending, budgets, debts, balances, wallets, todayCount, first, recentTxs, categories] = await Promise.all([
     db.pending.count(),
     wantInsights ? Promise.resolve([]) : monthBudgetStatuses(monthKey(now)),
-    wantInsights ? Promise.resolve({ owedToMe: 0, iOwe: 0, overdue: 0, open: 0 }) : debtSummary(),
+    wantInsights ? Promise.resolve(EMPTY_DEBT_SUMMARY) : debtSummary(),
     getBalances(),
     db.wallets.toArray(),
     db.transactions.where('date').between(dayStart, dayStart + 86_400_000, true, false).filter((t) => t.deletedAt == null).count(),

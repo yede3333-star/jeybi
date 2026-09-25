@@ -44,16 +44,35 @@ export function debtStatus(debt: Debt, txs: Transaction[], now = Date.now()): De
   return { debt, paid, remaining, closed, overdue: !closed && debt.dueDate != null && debt.dueDate < now };
 }
 
-export interface DebtSummary { owedToMe: number; iOwe: number; overdue: number; open: number }
+export interface DebtSummary {
+  owedToMe: number;
+  iOwe: number;
+  /** Number of open debts past their due date. */
+  overdue: number;
+  open: number;
+  /** Of owedToMe / iOwe, the part past its due date. */
+  overdueOwedToMe: number;
+  overdueIOwe: number;
+}
+
+export const EMPTY_DEBT_SUMMARY: DebtSummary = { owedToMe: 0, iOwe: 0, overdue: 0, open: 0, overdueOwedToMe: 0, overdueIOwe: 0 };
+
+/** "صافي أموالك": what the wallets hold, plus what others owe me, minus what I owe. */
+export const netWorth = (total: number, s: DebtSummary) => total + s.owedToMe - s.iOwe;
 
 export function summarize(statuses: DebtStatus[]): DebtSummary {
-  const s: DebtSummary = { owedToMe: 0, iOwe: 0, overdue: 0, open: 0 };
+  const s: DebtSummary = { ...EMPTY_DEBT_SUMMARY };
   for (const st of statuses) {
     if (st.closed) continue;
     s.open++;
     if (st.overdue) s.overdue++;
-    if (st.debt.direction === 'owed_to_me') s.owedToMe += st.remaining;
-    else s.iOwe += st.remaining;
+    if (st.debt.direction === 'owed_to_me') {
+      s.owedToMe += st.remaining;
+      if (st.overdue) s.overdueOwedToMe += st.remaining;
+    } else {
+      s.iOwe += st.remaining;
+      if (st.overdue) s.overdueIOwe += st.remaining;
+    }
   }
   return s;
 }

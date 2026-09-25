@@ -19,6 +19,7 @@ import { Sheet } from '../components/ui';
 import type { Template } from '../data/types';
 import { setSettings } from '../repo/settings';
 import { getReserved } from '../repo/goals';
+import { debtSummary, netWorth } from '../repo/debts';
 import { useDayKey } from '../hooks/day';
 import { errorMessage } from '../services/errors';
 import { markHomeReady } from '../services/startupTiming';
@@ -80,6 +81,7 @@ export default function Home() {
   const { nameOf, category } = useNames();
   const idle = useIdle();
   const reserved = useLiveQuery(getReserved, []);
+  const debts = useLiveQuery(debtSummary, []);
 
   // Period bounds only change when the day changes; recomputed on each render is cheap.
   useDayKey(); // re-render when the day changes (midnight / back from background)
@@ -131,6 +133,18 @@ export default function Home() {
       <section className="mx-4 rounded-3xl bg-gradient-to-br from-teal-700 to-teal-900 p-5 text-white shadow-lg">
         <p className="text-sm opacity-80">{t('home.totalBalance')}</p>
         <p className="num mt-1 text-4xl font-extrabold tracking-tight">{balances ? fmt.money(balances.total) : '…'}</p>
+        {balances && debts && debts.open > 0 && (
+          // the big number stays what is in the wallets; this line adds the debts
+          <button onClick={() => nav('/debts')} className="mt-2 block w-full rounded-xl bg-white/10 px-3 py-2 text-start text-xs leading-6">
+            <span>{t('home.owedToMe')}: <b className="num">{fmt.money(debts.owedToMe)}</b></span>
+            {debts.overdueOwedToMe > 0 && <span className="num rounded bg-amber-300/25 px-1 text-amber-100"> {t('home.overdue', { amount: fmt.money(debts.overdueOwedToMe) })}</span>}
+            <span className="opacity-60"> · </span>
+            <span>{t('home.iOwe')}: <b className="num">{fmt.money(debts.iOwe)}</b></span>
+            {debts.overdueIOwe > 0 && <span className="num rounded bg-rose-300/25 px-1 text-rose-100"> {t('home.overdue', { amount: fmt.money(debts.overdueIOwe) })}</span>}
+            <span className="opacity-60"> · </span>
+            <span className="font-semibold">{t('home.netWorth')}: <b className="num text-sm">{fmt.money(netWorth(balances.total, debts))}</b></span>
+          </button>
+        )}
         {stats && (
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-2xl bg-white/10 p-3">

@@ -19,6 +19,10 @@ const ar = {
   },
   categories: { general: 'عام' },
   home: {
+    owedToMe: 'لي عند الناس',
+    iOwe: 'علي للناس',
+    netWorth: 'صافي أموالك',
+    overdue: '(متأخر: {{amount}})',
     totalBalance: 'الرصيد الإجمالي', tools: 'أدواتي', thisMonth: 'هذا الشهر', quick: 'عمليات سريعة', recent: 'آخر العمليات',
     emptyTitle: 'لا توجد عمليات بعد', emptyHint: 'اضغط على زر + لتسجيل أول عملية.',
   },

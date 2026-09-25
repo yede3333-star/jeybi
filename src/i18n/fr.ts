@@ -22,6 +22,10 @@ const fr: Dict = {
   },
   categories: { general: 'Général' },
   home: {
+    owedToMe: 'On me doit',
+    iOwe: 'Je dois',
+    netWorth: 'Patrimoine net',
+    overdue: '(en retard : {{amount}})',
     totalBalance: 'Solde total', tools: 'Mes outils', thisMonth: 'Ce mois', quick: 'Saisie rapide', recent: 'Dernières opérations',
     emptyTitle: 'Aucune opération', emptyHint: 'Appuyez sur + pour enregistrer votre première opération.',
   },

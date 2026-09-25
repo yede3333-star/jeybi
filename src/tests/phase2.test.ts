@@ -114,7 +114,7 @@ describe('debts', () => {
     await createDebt({ direction: 'i_owe', person: 'Fatima', amount: 1_500_00, date: now, dueDate: now + 10 * DAY, note: '', walletId: cash });
     expect(await bal(cash)).toBe(1_500_00);
     const s = await debtSummary();
-    expect(s).toEqual({ owedToMe: 10_000_00, iOwe: 1_500_00, overdue: 1, open: 2 });
+    expect(s).toEqual({ owedToMe: 10_000_00, iOwe: 1_500_00, overdue: 1, open: 2, overdueOwedToMe: 10_000_00, overdueIOwe: 0 });
     expect((await listDebts())[0].debt.person).toBe('سيدي'); // overdue first
   });
 
