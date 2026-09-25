@@ -1,6 +1,7 @@
 import { db } from '../data/db';
 import type { Lang } from '../lib/money';
 import type { WeekStart } from '../lib/period';
+import type { BackupKey } from '../services/backupCrypto';
 
 export interface ZakatSettings {
   basis: 'gold' | 'silver';
@@ -55,6 +56,10 @@ export interface Settings {
   zakat: ZakatSettings;
   /** Budget alerts already shown: "yyyy-MM:categoryId" → 80 | 100. */
   budgetAlerts: Record<string, number>;
+  // Android app
+  /** Weekly encrypted backup to Documents/Jeybi: the key derived from the user's password (never the password itself). */
+  autoBackupKey: BackupKey | null;
+  lastAutoBackupAt: number | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -90,12 +95,15 @@ export const DEFAULT_SETTINGS: Settings = {
     includeReceivables: true, subtractPayables: true, hawlStart: null, lastPaidAt: null,
   },
   budgetAlerts: {},
+  autoBackupKey: null,
+  lastAutoBackupAt: null,
 };
 
 /** Keys that are device-specific and never travel inside a backup file. */
 export const DEVICE_ONLY_KEYS: Array<keyof Settings> = [
   'pinHash', 'pinSalt', 'pinIterations', 'pinLength', 'bioCredentialId', 'bioPublicKey', 'bioAlg',
   'pinCalibrated', 'lastWalletId', 'backupBannerSnoozedAt', 'reminderSnoozedDay', 'notificationsEnabled',
+  'autoBackupKey', 'lastAutoBackupAt',
 ];
 
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);

@@ -1,0 +1,73 @@
+apply plugin: 'com.android.application'
+
+// Release signing and version numbers come from the CI environment (.github/workflows/deploy.yml).
+// The keystore is NEVER in this repository: CI decodes it from the ANDROID_KEYSTORE_BASE64 secret.
+def jeybiKeystore = System.getenv('JEYBI_KEYSTORE')
+def jeybiVersionCode = (System.getenv('JEYBI_VERSION_CODE') ?: '1').toInteger()
+def jeybiVersionName = System.getenv('JEYBI_VERSION_NAME') ?: '1.0.0-dev'
+
+android {
+    namespace = "com.yede.jeybi"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.yede.jeybi"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        // Always increasing (commit count on main): Android installs a new APK over the old one as an update.
+        versionCode jeybiVersionCode
+        versionName jeybiVersionName
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        release {
+            if (jeybiKeystore) {
+                storeFile file(jeybiKeystore)
+                storeType 'pkcs12'
+                storePassword System.getenv('JEYBI_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('JEYBI_KEY_ALIAS') ?: 'jeybi'
+                keyPassword System.getenv('JEYBI_KEYSTORE_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (jeybiKeystore) signingConfig signingConfigs.release
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

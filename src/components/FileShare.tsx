@@ -5,6 +5,9 @@
 // or a PDF first and then calling share() lost that gesture, and Chrome on Android also refuses to
 // share some file types (.json, .xlsx) — the old code fell back to a silent download that does not
 // always work in an installed app, so nothing seemed to happen.
+//
+// Android app: the file is written to the app cache and shared with the native share sheet (any file
+// type, no gesture rule), and "download" saves it into the phone's Download/Jeybi folder.
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, Download, Loader2, Share2, TriangleAlert } from 'lucide-react';
@@ -13,6 +16,7 @@ import { downloadBlob } from '../services/share';
 import { errorMessage } from '../services/errors';
 import { formatNumber } from '../lib/money';
 import { useLang } from '../hooks/settings';
+import { isNative, native } from '../platform';
 
 export interface PreparedFile {
   blob: Blob;
@@ -38,6 +42,7 @@ interface State {
 }
 
 function canShareFile(f: File): boolean {
+  if (isNative) return true;
   try {
     return typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [f] });
   } catch {
@@ -68,6 +73,16 @@ export function FileShareProvider({ children }: { children: ReactNode }) {
   // Called synchronously from the click: the user gesture is still valid.
   const share = () => {
     if (!state?.shareFile || !state.file) return;
+    if (isNative) {
+      const { file, onDone } = state;
+      native().then((n) => n.shareFile(file.blob, file.filename, file.title)).then(
+        (r) => {
+          if (r === 'shared') { onDone?.('shared'); say(t('share.shared'), 'ok'); } else say(t('share.cancelled'), 'warn');
+        },
+        (e) => say(`${errorMessage(e, t, 'share:native')} ${t('share.tryDownload')}`, 'error'),
+      );
+      return;
+    }
     navigator.share({ files: [state.shareFile], title: state.file.title }).then(
       () => { state.onDone?.('shared'); say(t('share.shared'), 'ok'); },
       (e: Error) => {
@@ -79,6 +94,14 @@ export function FileShareProvider({ children }: { children: ReactNode }) {
 
   const download = () => {
     if (!state?.file) return;
+    if (isNative) {
+      const { file, onDone } = state;
+      native().then((n) => n.saveToDownloads(file.blob, file.filename)).then(
+        (path) => { onDone?.('downloaded'); say(t('share.savedTo', { path }), 'ok'); },
+        (e) => say(errorMessage(e, t, 'share:save'), 'error'),
+      );
+      return;
+    }
     try {
       downloadBlob(state.file.blob, state.file.filename);
       state.onDone?.('downloaded');
@@ -104,7 +127,7 @@ export function FileShareProvider({ children }: { children: ReactNode }) {
             {state.canShare
               ? <button className="btn-primary w-full text-lg" onClick={share}><Share2 className="size-5" />{t('share.shareNow')}</button>
               : <p className="rounded-xl bg-black/5 p-3 text-sm text-muted dark:bg-white/5">{t('share.cannotShare')}</p>}
-            <button className={`${state.canShare ? 'btn-soft' : 'btn-primary'} w-full`} onClick={download}><Download className="size-5" />{t('share.download')}</button>
+            <button className={`${state.canShare ? 'btn-soft' : 'btn-primary'} w-full`} onClick={download}><Download className="size-5" />{t(isNative ? 'share.saveDownloads' : 'share.download')}</button>
           </div>
         )}
         {state?.message && (

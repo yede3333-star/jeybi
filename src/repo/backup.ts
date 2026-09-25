@@ -5,6 +5,7 @@ import type {
 import { missingSystemCategories } from '../data/defaults';
 import { DEVICE_ONLY_KEYS, getSettings, setSettings, type Settings } from './settings';
 import { rebuildFlows } from './flows';
+import { decryptBackupText, encryptBackupText, isEncryptedBackup, WrongPasswordError, type BackupKey, type EncryptedBackup } from '../services/backupCrypto';
 
 /**
  * 1 = phase 1 (wallets, categories, transactions, templates, audit, receipts, settings).
@@ -93,6 +94,40 @@ export async function exportBackup(): Promise<BackupFile> {
 }
 
 export class BackupError extends Error {}
+
+/** The whole backup as an encrypted file (see services/backupCrypto.ts). */
+export async function exportEncryptedBackup(secret: string | BackupKey): Promise<string> {
+  return encryptBackupText(JSON.stringify(await exportBackup()), secret);
+}
+
+export type OpenedBackup =
+  | { kind: 'plain'; file: BackupFile; preview: BackupPreview }
+  | { kind: 'encrypted'; envelope: EncryptedBackup };
+
+/** First step of an import: an encrypted file needs its password before anything can be shown. */
+export function openBackupText(text: string): OpenedBackup {
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new BackupError('invalidJson');
+  }
+  if (isEncryptedBackup(json)) return { kind: 'encrypted', envelope: json };
+  return { kind: 'plain', ...parseBackup(text) };
+}
+
+/** Wrong password → BackupError('wrongPassword'); the current data is never touched here. */
+export async function decryptBackup(envelope: EncryptedBackup, password: string): Promise<{ file: BackupFile; preview: BackupPreview }> {
+  let plain: string;
+  try {
+    plain = await decryptBackupText(envelope, password);
+  } catch (e) {
+    if (e instanceof WrongPasswordError) throw new BackupError('wrongPassword');
+    if ((e as Error)?.message === 'unsupportedEncryption') throw new BackupError('newerFormat');
+    throw e;
+  }
+  return parseBackup(plain);
+}
 
 export function parseBackup(text: string): { file: BackupFile; preview: BackupPreview } {
   let file: BackupFile;

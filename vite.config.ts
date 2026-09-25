@@ -9,7 +9,8 @@ import pkg from './package.json' with { type: 'json' };
 export default defineConfig({
   base: process.env.BASE_PATH || './',
   build: { chunkSizeWarningLimit: 700 },
-  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+  // APP_BUILD = commit count, set by CI: the same number as the Android versionCode.
+  define: { __APP_VERSION__: JSON.stringify(pkg.version), __APP_BUILD__: JSON.stringify(process.env.APP_BUILD ?? '') },
   plugins: [
     react(),
     tailwindcss(),

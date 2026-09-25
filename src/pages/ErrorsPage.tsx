@@ -6,6 +6,7 @@ import { useToast } from '../components/Toast';
 import { useFmt } from '../hooks/fmt';
 import { clearErrors, errorsAsText, readErrors } from '../services/errorLog';
 import { readStartup, startupAsText } from '../services/startupTiming';
+import { isNative, native } from '../platform';
 
 export default function ErrorsPage() {
   const { t } = useTranslation();
@@ -31,6 +32,10 @@ export default function ErrorsPage() {
   };
   // Text sharing is allowed everywhere (unlike some file types), e.g. straight to WhatsApp.
   const share = async () => {
+    if (isNative) {
+      await (await native()).shareText(report(), 'Jeybi errors').catch(() => copy());
+      return;
+    }
     try {
       await navigator.share({ title: 'Jeybi errors', text: report() });
     } catch (e) {
@@ -46,7 +51,7 @@ export default function ErrorsPage() {
         {(list.length > 0 || startup.length > 0) && (
           <div className="grid grid-cols-3 gap-2">
             <button className="btn-soft" onClick={copy}><Copy className="size-4" />{t('errorsPage.copy')}</button>
-            <button className="btn-soft" disabled={typeof navigator.share !== 'function'} onClick={share}><Share2 className="size-4" />{t('errorsPage.share')}</button>
+            <button className="btn-soft" disabled={!isNative && typeof navigator.share !== 'function'} onClick={share}><Share2 className="size-4" />{t('errorsPage.share')}</button>
             <button className="btn-danger" disabled={list.length === 0} onClick={() => { clearErrors(); toast({ message: t('errorsPage.cleared') }); }}><Trash2 className="size-4" />{t('errorsPage.clear')}</button>
           </div>
         )}

@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <!-- Default (and Arabic) name; French and English phones show "Jeybi" (values-fr, values-en). -->
+    <string name="app_name">جيبي</string>
+    <string name="title_activity_main">جيبي</string>
+    <string name="package_name">com.yede.jeybi</string>
+    <string name="custom_url_scheme">com.yede.jeybi</string>
+</resources>

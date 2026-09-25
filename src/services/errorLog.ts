@@ -2,6 +2,8 @@
 // Stored in localStorage (works even if IndexedDB is the thing failing), last 50 entries, and never
 // holds financial data: long numbers are masked, and only the route path (no query) is kept.
 
+import { displayMode } from '../platform';
+
 const KEY = 'jeybi:errors';
 const MAX = 50;
 
@@ -12,7 +14,7 @@ export interface LoggedError {
   message: string;
   stack?: string;
   version: string;
-  mode: 'standalone' | 'browser';
+  mode: 'android' | 'standalone' | 'browser';
   lang: string;
 }
 
@@ -51,7 +53,7 @@ export function logError(err: unknown, where?: string): void {
       message: mask(d.message).slice(0, 300),
       stack: d.stack ? mask(d.stack).slice(0, 500) : undefined,
       version: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '?',
-      mode: matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
+      mode: displayMode(),
       lang: document.documentElement.lang,
     };
     localStorage.setItem(KEY, JSON.stringify([entry, ...readErrors()].slice(0, MAX)));

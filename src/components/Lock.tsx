@@ -6,6 +6,10 @@ import { verifyBiometric, verifyPin, createPinHash } from '../services/security'
 import { logError } from '../services/errorLog';
 import { markFirstScreen, markUnlockStart } from '../services/startupTiming';
 import { setSettings } from '../repo/settings';
+import { isNative, native, pushBackHandler } from '../platform';
+
+/** bioCredentialId value when the biometric is Android's own BiometricPrompt (no WebAuthn credential). */
+export const NATIVE_BIO = 'android-biometric';
 
 // Set when the user has just proven they know the PIN (created it during onboarding, or unlocked),
 // so the gate doesn't ask again right away. Kept in sessionStorage (this tab only) because an app
@@ -27,6 +31,9 @@ export function LockGate({ children }: { children: ReactNode }) {
   const [locked, setLocked] = useState(hasPin && !recentlyUnlocked());
   const lastActive = useRef(Date.now());
   const hiddenAt = useRef<number | null>(null);
+  // Once the user has unlocked, a later lock covers the app instead of replacing it: an entry being
+  // typed (or a photo being taken for a receipt) is still there after unlocking.
+  const unlockedOnce = useRef(!locked);
 
   useEffect(() => {
     if (!hasPin) setLocked(false);
@@ -36,26 +43,32 @@ export function LockGate({ children }: { children: ReactNode }) {
     if (!hasPin) return;
     const timeoutMs = s.lockTimeoutMin * 60_000;
     const touch = () => { lastActive.current = Date.now(); };
-    const onVis = () => {
-      if (document.visibilityState === 'hidden') hiddenAt.current = Date.now();
+    const onActive = (active: boolean) => {
+      if (!active) hiddenAt.current = Date.now();
       else if (hiddenAt.current != null && Date.now() - hiddenAt.current >= timeoutMs) setLocked(true);
     };
+    const onVis = () => onActive(document.visibilityState !== 'hidden');
+    // Android app: pause/resume from the native side (see platform/native.ts).
+    const onApp = (e: Event) => onActive((e as CustomEvent<boolean>).detail);
     const timer = window.setInterval(() => {
       if (timeoutMs > 0 && Date.now() - lastActive.current >= timeoutMs) setLocked(true);
     }, 10_000);
     document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('jeybi:app-active', onApp);
     window.addEventListener('pointerdown', touch);
     window.addEventListener('keydown', touch);
     return () => {
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('jeybi:app-active', onApp);
       window.removeEventListener('pointerdown', touch);
       window.removeEventListener('keydown', touch);
     };
   }, [hasPin, s.lockTimeoutMin]);
 
-  if (locked) return <LockScreen onUnlock={() => { lastActive.current = Date.now(); markUnlocked(); setLocked(false); }} />;
-  return <>{children}</>;
+  const unlock = () => { lastActive.current = Date.now(); unlockedOnce.current = true; markUnlocked(); setLocked(false); };
+  if (locked && !unlockedOnce.current) return <LockScreen onUnlock={unlock} />;
+  return <>{children}{locked && <LockScreen onUnlock={unlock} />}</>;
 }
 
 export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
@@ -71,11 +84,19 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   const tried = useRef(false);
 
   useEffect(() => { markFirstScreen('lock'); }, []);
+  // Android back button on the lock screen leaves the app (never reveals what is behind it).
+  useEffect(() => (isNative ? pushBackHandler(() => void native().then((n) => n.exitApp())) : undefined), []);
 
   // Unlocking with the biometric never runs PBKDF2: only the signature check (a few ms).
   const tryBio = useCallback(async () => {
     if (!s.bioCredentialId) return;
     setBioState('pending');
+    if (isNative) {
+      // Android BiometricPrompt: the system dialog, no WebAuthn round trip.
+      const r = await (await native()).biometricAuthenticate({ title: t('app.name'), subtitle: t('lock.bioPrompt'), cancel: t('lock.usePin') });
+      if (r === 'ok') { markUnlockStart('bio'); onUnlock(); } else setBioState('failed');
+      return;
+    }
     try {
       const ok = await verifyBiometric({ credentialId: s.bioCredentialId, publicKey: s.bioPublicKey, alg: s.bioAlg });
       if (ok) { markUnlockStart('bio'); onUnlock(); return; }
@@ -86,7 +107,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
       if (name !== 'NotAllowedError' && name !== 'AbortError') logError(e, 'bio:unlock');
       setBioState('failed');
     }
-  }, [s.bioCredentialId, s.bioPublicKey, s.bioAlg, onUnlock]);
+  }, [s.bioCredentialId, s.bioPublicKey, s.bioAlg, onUnlock, t]);
 
   // Prompt once, after the lock screen has been painted, and only while the app is visible.
   useEffect(() => {

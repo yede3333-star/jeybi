@@ -2,12 +2,14 @@
 // is slower" can be checked with real numbers from the phone rather than guessed on a computer.
 // Only timings and the display mode are stored — nothing about the user's data.
 
+import { displayMode } from '../platform';
+
 const KEY = 'jeybi:startup';
 const MAX = 10;
 
 export interface StartupEntry {
   at: number;
-  mode: 'standalone' | 'browser';
+  mode: 'android' | 'standalone' | 'browser';
   /** First screen painted: the lock screen, or the home screen when there is no PIN. */
   first: 'lock' | 'home';
   /** ms from launch (navigation start) to that first paint. */
@@ -45,7 +47,7 @@ export function markFirstScreen(first: 'lock' | 'home') {
   if (entry) return;
   entry = {
     at: Date.now(),
-    mode: matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
+    mode: displayMode(),
     first,
     firstMs: 0,
   };

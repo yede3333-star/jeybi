@@ -2,3 +2,8 @@ node_modules
 dist
 dev-dist
 *.local
+
+# Android signing keys: never in the repository (it is public)
+*.p12
+*.jks
+*.keystore

@@ -1,4 +1,4 @@
-// Generates the PWA PNG icons without any dependency (pure Node + zlib).
+// Generates the PWA PNG icons and the Android launcher/splash icons without any dependency (pure Node + zlib).
 // Same drawing as public/favicon.svg, in a 64-unit coordinate space, with 4x4 supersampling.
 import { deflateSync } from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -35,7 +35,8 @@ function sample(x, y, maskable) {
   return TEAL;
 }
 
-function render(size, maskable) {
+// shape: 'rounded' (PWA icon), 'full' (full-bleed, maskable / adaptive foreground), 'circle' (legacy round launcher icon)
+function render(size, maskable, shape = maskable ? 'full' : 'rounded') {
   const ss = 4;
   const raw = Buffer.alloc((size * 4 + 1) * size);
   for (let py = 0; py < size; py++) {
@@ -44,7 +45,8 @@ function render(size, maskable) {
       let r = 0, g = 0, b = 0, a = 0;
       for (let sy = 0; sy < ss; sy++)
         for (let sx = 0; sx < ss; sx++) {
-          const c = sample(((px + (sx + 0.5) / ss) / size) * 64, ((py + (sy + 0.5) / ss) / size) * 64, maskable);
+          const x = ((px + (sx + 0.5) / ss) / size) * 64, y = ((py + (sy + 0.5) / ss) / size) * 64;
+          const c = shape === 'circle' && (x - 32) ** 2 + (y - 32) ** 2 > 32 * 32 ? null : sample(x, y, shape !== 'rounded');
           if (c) { r += c[0]; g += c[1]; b += c[2]; a += 1; }
         }
       const o = py * (size * 4 + 1) + 1 + px * 4;
@@ -89,4 +91,17 @@ mkdirSync('public/icons', { recursive: true });
 writeFileSync('public/icons/icon-192.png', render(192, false));
 writeFileSync('public/icons/icon-512.png', render(512, false));
 writeFileSync('public/icons/icon-maskable-512.png', render(512, true));
+
+// Android (Capacitor): launcher icons per density, adaptive foreground, splash icon.
+const RES = 'android/app/src/main/res';
+const densities = { mdpi: 1, hdpi: 1.5, xhdpi: 2, xxhdpi: 3, xxxhdpi: 4 };
+for (const [d, k] of Object.entries(densities)) {
+  const dir = `${RES}/mipmap-${d}`;
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(`${dir}/ic_launcher.png`, render(Math.round(48 * k), false));
+  writeFileSync(`${dir}/ic_launcher_round.png`, render(Math.round(48 * k), true, 'circle'));
+  writeFileSync(`${dir}/ic_launcher_foreground.png`, render(Math.round(108 * k), true));
+}
+mkdirSync(`${RES}/drawable-xxxhdpi`, { recursive: true });
+writeFileSync(`${RES}/drawable-xxxhdpi/splash_icon.png`, render(480, false)); // 120dp, centred on the splash
 console.log('icons written');

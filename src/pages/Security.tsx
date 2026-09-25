@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Fingerprint, KeyRound, Lock, Timer } from 'lucide-react';
 import { PageHeader, Toggle, Sheet } from '../components/ui';
-import { PinPad } from '../components/Lock';
+import { NATIVE_BIO, PinPad } from '../components/Lock';
+import { isNative, native } from '../platform';
 import { useToast } from '../components/Toast';
 import { useSettings } from '../hooks/settings';
 import { setSettings } from '../repo/settings';
@@ -60,11 +61,22 @@ export default function Security() {
   const [verifyFor, setVerifyFor] = useState<null | 'remove' | 'change'>(null);
   const [bioOk, setBioOk] = useState<boolean | null>(null);
 
-  useEffect(() => { void biometricAvailable().then(setBioOk); }, []);
+  useEffect(() => {
+    void (isNative ? native().then((n) => n.biometricAvailable()) : biometricAvailable()).then(setBioOk);
+  }, []);
 
   const toggleBio = async (on: boolean) => {
     if (!on) {
       await setSettings({ bioCredentialId: null, bioPublicKey: null, bioAlg: null });
+      return;
+    }
+    if (isNative) {
+      // Android: confirm once with the system prompt; nothing to register.
+      const r = await (await native()).biometricAuthenticate({ title: t('app.name'), subtitle: t('security.bioConfirm'), cancel: t('common.cancel') });
+      if (r === 'ok') {
+        await setSettings({ bioCredentialId: NATIVE_BIO, bioPublicKey: null, bioAlg: null });
+        toast({ message: t('security.bioEnabled') });
+      } else if (r === 'failed') toast({ message: t('security.bioFailed'), tone: 'error' });
       return;
     }
     try {

@@ -1,6 +1,7 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { HashRouter, NavLink, Route, Routes, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { ChartPie, House, List, Plus, Settings as SettingsIcon } from 'lucide-react';
 import { SettingsProvider, useSettings } from './hooks/settings';
 import { ToastProvider, useToast } from './components/Toast';
@@ -10,6 +11,10 @@ import { FileShareProvider } from './components/FileShare';
 import { initDatabase, requestPersistentStorage } from './repo/init';
 import { logError } from './services/errorLog';
 import i18n from './i18n';
+import { isNative, native } from './platform';
+import { useDayKey } from './hooks/day';
+import { autoBackupDue, makeAutoBackup, notificationInputs } from './repo/phone';
+import { planNotifications } from './services/notifyPlan';
 import Home from './pages/Home';
 // Only the home screen is in the startup bundle. Every other page (and its libraries: charts,
 // Excel, PDF…) is a separate chunk loaded on first visit — all still precached for offline use.
@@ -109,6 +114,53 @@ function BackgroundJobs() {
   return null;
 }
 
+/**
+ * Android app only: keeps the phone's scheduled notifications (daily reminder, debts due, end of the
+ * hawl) in line with the data, makes the weekly encrypted backup, and handles the back-button hint.
+ */
+function PhoneJobs() {
+  const { t, i18n: i } = useTranslation();
+  const toast = useToast();
+  const day = useDayKey();
+  const inputs = useLiveQuery(() => notificationInputs(), [day]);
+  const lastPlan = useRef('');
+
+  useEffect(() => {
+    if (!inputs) return;
+    const plan = planNotifications({ ...inputs, now: Date.now(), t: (k, v) => t(k, v) });
+    const sig = JSON.stringify([plan, i.language]);
+    if (sig === lastPlan.current) return;
+    // debounced: typing several entries in a row reschedules once
+    const id = window.setTimeout(() => {
+      lastPlan.current = sig;
+      native().then((n) => n.syncNotifications(plan, t('notify.channel'))).catch((e) => logError(e, 'notify:sync'));
+    }, 1500);
+    return () => clearTimeout(id);
+  }, [inputs, t, i.language]);
+
+  useEffect(() => {
+    const ric = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 3000));
+    ric(async () => {
+      try {
+        if (!(await autoBackupDue())) return;
+        const n = await native();
+        const f = await makeAutoBackup((text, stamp) => n.writeAutoBackup(text, stamp));
+        await n.notifyAutoBackup(f, t('autoBackup.notifyTitle'), t('autoBackup.notifyBody'));
+      } catch (e) {
+        logError(e, 'autoBackup');
+        toast({ message: t('autoBackup.failed'), tone: 'error' });
+      }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const onHint = () => toast({ message: t('app.backAgainToExit') });
+    window.addEventListener('jeybi:exit-hint', onHint);
+    return () => window.removeEventListener('jeybi:exit-hint', onHint);
+  }, [t, toast]);
+  return null;
+}
+
 /** Shown when a new version has been downloaded; the app keeps working until the user restarts. */
 function UpdateBanner() {
   const { t } = useTranslation();
@@ -135,6 +187,7 @@ function Shell() {
       <UpdateBanner />
       <ScrollTop />
       <BackgroundJobs />
+      {isNative && <PhoneJobs />}
       <main className="mx-auto min-h-dvh max-w-md pb-40">
         <Suspense fallback={<Splash />}>
           <Routes>
@@ -173,7 +226,8 @@ function Gate() {
   useEffect(() => {
     if (!s.onboarded) return;
     const ric = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 2000));
-    ric(() => { void requestPersistentStorage(); });
+    // Android: IndexedDB lives in the app's private storage and is only removed with the app.
+    if (!isNative) ric(() => { void requestPersistentStorage(); });
   }, [s.onboarded]);
   if (!s.onboarded) return <Suspense fallback={<Splash />}><Onboarding /></Suspense>;
   return (

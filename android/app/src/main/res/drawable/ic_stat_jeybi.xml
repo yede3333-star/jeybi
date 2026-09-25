@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification icon (status bar): white silhouette of the app's wallet, same geometry as favicon.svg. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M16,20 L40,12 L44,20 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M18,20 H46 A6,6 0 0 1 52,26 V42 A6,6 0 0 1 46,48 H18 A6,6 0 0 1 12,42 V26 A6,6 0 0 1 18,20 Z M40,29 H48 A4,4 0 0 1 52,33 V35 A4,4 0 0 1 48,39 H40 A4,4 0 0 1 36,35 V33 A4,4 0 0 1 40,29 Z" />
+</vector>

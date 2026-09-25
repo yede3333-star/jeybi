@@ -1,14 +1,19 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, X } from 'lucide-react';
+import { pushBackHandler } from '../platform';
 
 /** Bottom sheet modal. */
 export function Sheet({ open, onClose, title, children, footer, tall = false }: {
   open: boolean; onClose: () => void; title?: ReactNode; children: ReactNode; footer?: ReactNode; tall?: boolean;
 }) {
   const { t } = useTranslation();
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  // Android back button closes the sheet (registered once per opening, so nested sheets keep their order).
+  useEffect(() => (open ? pushBackHandler(() => closeRef.current()) : undefined), [open]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -43,7 +48,7 @@ export function PageHeader({ title, back = false, actions }: { title: ReactNode;
   const nav = useNavigate();
   const { t } = useTranslation();
   return (
-    <header className="sticky top-0 z-20 flex min-h-14 items-center gap-1 bg-page/90 px-2 backdrop-blur">
+    <header className="safe-top sticky z-20 flex min-h-14 items-center gap-1 bg-page/90 px-2 backdrop-blur">
       {back && (
         <button className="btn-ghost size-11 min-h-11 rounded-full p-0" onClick={() => nav(-1)} aria-label={t('common.back')}>
           <ArrowLeft className="size-5 rtl:rotate-180" />

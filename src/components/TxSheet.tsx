@@ -18,6 +18,7 @@ import { keypadToMinor, minorToKeypad, parseAmount } from '../lib/money';
 import { createTransaction, feeOf, updateTransaction, type TxInput } from '../repo/transactions';
 import { getReceipt, saveReceipt } from '../repo/receipts';
 import { compressImage } from '../services/image';
+import { isNative, native } from '../platform';
 import { parseRate, rateToString, toBase } from '../services/currency';
 import { setSettings } from '../repo/settings';
 import { checkBudgetAlerts } from '../repo/budgets';
@@ -319,8 +320,22 @@ export default function TxSheet({ initialType, tx, onClose }: { initialType: Edi
                 </div>
               ) : (
                 // Two explicit choices: `capture` forces the camera, so the gallery input must not have it.
+                // Android app: the native camera and photo picker instead.
                 <div className="grid grid-cols-2 gap-2">
-                  {([['camera', true], ['gallery', false]] as const).map(([kind, capture]) => (
+                  {isNative && (['camera', 'gallery'] as const).map((kind) => (
+                    <button key={kind} type="button" className="btn-soft" onClick={async () => {
+                      try {
+                        const photo = await (await native()).pickPhoto(kind);
+                        if (photo) setReceiptBlob(await compressImage(photo));
+                      } catch (err) {
+                        setError(errorMessage(err, t, 'receipt:native'));
+                      }
+                    }}>
+                      {kind === 'camera' ? <Camera className="size-4" /> : <ImagePlus className="size-4" />}
+                      {t(kind === 'camera' ? 'tx.takePhoto' : 'tx.fromGallery')}
+                    </button>
+                  ))}
+                  {!isNative && ([['camera', true], ['gallery', false]] as const).map(([kind, capture]) => (
                     <label key={kind} className="btn-soft cursor-pointer">
                       {kind === 'camera' ? <Camera className="size-4" /> : <ImagePlus className="size-4" />}
                       {t(kind === 'camera' ? 'tx.takePhoto' : 'tx.fromGallery')}

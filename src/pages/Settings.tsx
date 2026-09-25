@@ -6,7 +6,8 @@ import {
   Bug, BellRing, Coins, HandCoins, Lightbulb, Moon, PiggyBank, Repeat, Scale, Target,
   ChevronLeft, CloudUpload, Database, FlaskConical, FolderTree, HardDrive, Lock, RotateCcw, Trash2, Wallet, Zap,
 } from 'lucide-react';
-import { PageHeader, Segmented } from '../components/ui';
+import { PageHeader, Segmented, Sheet } from '../components/ui';
+import { isNative, native } from '../platform';
 import { useToast } from '../components/Toast';
 import { useLang, useSettings } from '../hooks/settings';
 import { setSettings, type Settings as S } from '../repo/settings';
@@ -43,7 +44,8 @@ export default function Settings() {
   const [busy, setBusy] = useState(false);
   const errorCount = readErrors().length;
 
-  useEffect(() => { void navigator.storage?.persisted?.().then(setPersisted); }, []);
+  useEffect(() => { if (isNative) setPersisted(true); else void navigator.storage?.persisted?.().then(setPersisted); }, []);
+  const [resetOpen, setResetOpen] = useState(false);
 
   const toggleDemo = async () => {
     setBusy(true);
@@ -57,12 +59,6 @@ export default function Settings() {
     }
   };
 
-  const reset = async () => {
-    if (!confirm(t('settings.resetConfirm1'))) return;
-    if (!confirm(t('settings.resetConfirm2'))) return;
-    await wipeAll();
-    location.reload();
-  };
 
   return (
     <div>
@@ -167,7 +163,7 @@ export default function Settings() {
             hint={s.lastBackupAt ? t('backup.last', { date: new Intl.DateTimeFormat(lang === 'ar' ? 'ar-MR-u-nu-latn' : 'fr-FR', { dateStyle: 'medium' }).format(s.lastBackupAt) }) : t('backup.never')} />
           <div className="flex min-h-14 items-center gap-3 px-4 py-2">
             <HardDrive className="size-5 text-muted" />
-            <span className="flex-1 text-sm">{persisted ? t('settings.storagePersisted') : t('settings.storageNotPersisted')}</span>
+            <span className="flex-1 text-sm">{isNative ? t('settings.storageApp') : persisted ? t('settings.storagePersisted') : t('settings.storageNotPersisted')}</span>
           </div>
         </div>
 
@@ -182,16 +178,90 @@ export default function Settings() {
 
         <h2 className="section-title">{t('settings.danger')}</h2>
         <div className="card p-4">
-          <button className="btn-danger w-full" onClick={reset}><RotateCcw className="size-4" />{t('settings.reset')}</button>
+          <p className="mb-3 text-sm text-muted">{t('settings.resetHint')}</p>
+          <button className="btn-danger w-full" onClick={() => setResetOpen(true)}><RotateCcw className="size-4" />{t('settings.reset')}</button>
         </div>
-        <p className="py-6 text-center text-xs text-muted">{t('app.name')} · v{__APP_VERSION__}</p>
+        <p className="py-6 text-center text-xs text-muted">{t('app.name')} · <bdi dir="ltr">v{__APP_VERSION__}{__APP_BUILD__ ? ` (${__APP_BUILD__})` : ''}</bdi></p>
+        <ResetSheet open={resetOpen} onClose={() => setResetOpen(false)} />
       </div>
+    </div>
+  );
+}
+
+/**
+ * "Erase all data and start again": typing a word is the second confirmation. Everything in the
+ * database goes (transactions, debts, goals, settings, PIN) and the welcome screen comes back.
+ * Backup files already saved outside the app (Documents/Jeybi, Downloads…) are not touched.
+ */
+function ResetSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (open) setTyped(''); }, [open]);
+  const word = t('settings.resetWord');
+  const ok = typed.trim().toLocaleLowerCase() === word.toLocaleLowerCase();
+  const wipe = async () => {
+    setBusy(true);
+    try {
+      if (isNative) await (await native()).syncNotifications([], '').catch(() => {});
+      await wipeAll();
+      try {
+        for (const k of Object.keys(localStorage)) if (k.startsWith('jeybi:') && k !== 'jeybi:ui') localStorage.removeItem(k);
+        sessionStorage.clear();
+      } catch { /* storage blocked: nothing else to clear */ }
+      location.reload();
+    } catch (e) {
+      setBusy(false);
+      toast({ message: errorMessage(e, t, 'reset'), tone: 'error' });
+    }
+  };
+  return (
+    <Sheet open={open} onClose={onClose} title={t('settings.reset')}
+      footer={<button className="btn-danger w-full" disabled={!ok || busy} onClick={wipe}><RotateCcw className="size-4" />{t('settings.resetAction')}</button>}>
+      <div className="space-y-3">
+        <p className="rounded-xl bg-red-600/10 p-3 text-sm text-red-800 dark:text-red-300">{t('settings.resetWarning')}</p>
+        <label className="label" htmlFor="reset-word">{t('settings.resetType', { word })}</label>
+        <input id="reset-word" className="input" autoComplete="off" value={typed} onChange={(e) => setTyped(e.target.value)} />
+      </div>
+    </Sheet>
+  );
+}
+
+/** Android app: real phone notifications (daily reminder, debts due, end of the hawl), even when the app is closed. */
+function NativeNotificationsRow() {
+  const { t } = useTranslation();
+  const s = useSettings();
+  const toast = useToast();
+  const [granted, setGranted] = useState<boolean | null>(null);
+  useEffect(() => { void native().then((n) => n.notificationsGranted()).then(setGranted); }, []);
+  const enable = async (on: boolean) => {
+    if (!on) { await setSettings({ notificationsEnabled: false }); return; }
+    try {
+      const n = await native();
+      if (!(await n.requestNotifications())) { setGranted(false); toast({ message: t('settings.notificationsDeniedApp'), tone: 'error' }); return; }
+      setGranted(true);
+      await setSettings({ notificationsEnabled: true });
+      await n.testNotification(t('app.name'), t('settings.notificationTest'));
+    } catch (e) {
+      toast({ message: errorMessage(e, t, 'notify:enable'), tone: 'error' });
+    }
+  };
+  return (
+    <div className="flex min-h-14 items-center gap-3 px-4 py-2">
+      <span className="flex-1"><span className="block font-semibold">{t('settings.notificationsApp')}</span><span className="block text-xs text-muted">{t('settings.notificationsHintApp')}</span></span>
+      <Toggle checked={s.notificationsEnabled && granted !== false} onChange={enable} label={t('settings.notificationsApp')} />
     </div>
   );
 }
 
 /** Local notifications: permission + a test. Not reliable when the PWA is closed — the in-app banner is the main reminder. */
 function NotificationsRow() {
+  if (isNative) return <NativeNotificationsRow />;
+  return <WebNotificationsRow />;
+}
+
+function WebNotificationsRow() {
   const { t } = useTranslation();
   const s = useSettings();
   const toast = useToast();
