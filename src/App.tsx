@@ -10,6 +10,8 @@ import { LockGate, markUnlocked } from './components/Lock';
 import { FileShareProvider } from './components/FileShare';
 import { ImpactProvider } from './components/Impact';
 import { initDatabase, requestPersistentStorage } from './repo/init';
+import { getSettings, setSettings } from './repo/settings';
+import { PrivacyReveal } from './components/PrivacyReveal';
 import { logError } from './services/errorLog';
 import i18n from './i18n';
 import { isNative, native } from './platform';
@@ -204,6 +206,7 @@ function Shell() {
   return (
     <HashRouter>
       <UpdateBanner />
+      <PrivacyReveal />
       <ScrollTop />
       <BackgroundJobs />
       {isNative && <PhoneJobs />}
@@ -268,7 +271,13 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   useEffect(() => {
-    initDatabase().then(() => setReady(true), (e) => { logError(e, 'init'); setFailed(String((e as Error)?.name ?? e)); });
+    initDatabase()
+      .then(async () => {
+        // privacy mode: "hide amounts when the app opens"
+        const s = await getSettings();
+        if (s.hideOnOpen && !s.amountsHidden) await setSettings({ amountsHidden: true });
+      })
+      .then(() => setReady(true), (e) => { logError(e, 'init'); setFailed(String((e as Error)?.name ?? e)); });
   }, []);
   if (failed) return (
     <div className="p-6 text-center">

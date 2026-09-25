@@ -134,6 +134,7 @@ function Timeline({ report, fmt }: { report: Report; fmt: Formatters }) {
 export default function Reports() {
   const { t, i18n } = useTranslation();
   const fmt = useFmt();
+  const fmtReal = useFmt({ real: true }); // PDF / image: always the real amounts
   const nav = useNavigate();
   const names = useNames();
   const txs = useTransactions();
@@ -304,7 +305,7 @@ export default function Reports() {
 
       {exporting && (
         <div aria-hidden style={{ position: 'fixed', top: 0, left: -10000, zIndex: -1 }}>
-          <ReportPrint ref={printRef} report={report} periodText={periodText} fmt={fmt} variant={exporting === 'pdf' ? 'full' : 'summary'} />
+          <ReportPrint ref={printRef} report={report} periodText={periodText} fmt={fmtReal} variant={exporting === 'pdf' ? 'full' : 'summary'} />
         </div>
       )}
     </div>

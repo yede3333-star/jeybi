@@ -50,6 +50,8 @@ export default function TxSheet({ initialType, tx: realTx, onClose, draft, onDra
   const { t } = useTranslation();
   const lang = useLang();
   const fmt = useFmt();
+  // amounts being typed are never masked (privacy mode hides balances, not what you enter)
+  const fmtReal = useFmt({ real: true });
   const settings = useSettings();
   const toast = useToast();
   const guard = useImpactGuard();
@@ -216,7 +218,7 @@ export default function TxSheet({ initialType, tx: realTx, onClose, draft, onDra
           <span className="num" dir="ltr">1 {currency} =</span>
           <input className="input num min-h-10 w-24 text-center" dir="ltr" inputMode="decimal" value={rateStr} placeholder="0" aria-label={t('currencies.rate')} onChange={(e) => setRateStr(e.target.value)} />
           <span>{fmt.currencyLabel}</span>
-          <span className="num font-semibold text-muted">= {rateE4 ? fmt.money(amount) : '…'}</span>
+          <span className="num font-semibold text-muted">= {rateE4 ? fmtReal.money(amount) : '…'}</span>
         </div>
       )}
     </div>
@@ -281,7 +283,7 @@ export default function TxSheet({ initialType, tx: realTx, onClose, draft, onDra
             <div className="flex items-center justify-between">
               <span className="font-semibold">{t('tx.split')}</span>
               <span className={`num text-sm ${splitSum === amount ? 'text-income' : 'text-expense'}`}>
-                {t('tx.remaining')}: {fmt.money(amount - splitSum)}
+                {t('tx.remaining')}: {fmtReal.money(amount - splitSum)}
               </span>
             </div>
             {splits.map((s, i) => (

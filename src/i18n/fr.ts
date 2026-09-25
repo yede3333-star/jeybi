@@ -189,6 +189,12 @@ const fr: Dict = {
     releaseNote: 'Utilisé par une opération',
     recurringNegative: '{{n}} opérations récurrentes enregistrées ; le solde de {{wallet}} est passé sous zéro. Revenu oublié ?',
   },
+  privacy: {
+    title: 'Confidentialité', hide: 'Masquer les montants', show: 'Afficher les montants', hideNow: 'Masquer les montants',
+    hint: 'Les montants apparaissent « ••••• » partout. Appui long sur un montant pour le voir quelques secondes.',
+    hideOnOpen: 'Masquer les montants à l’ouverture', secure: 'Masquer l’app dans les applications récentes',
+    secureHint: 'Seulement quand les montants sont masqués. Bloque aussi les captures d’écran.', exportNote: 'Mode masqué actif : le fichier contient les vrais montants.',
+  },
   smart: {
     voice: {
       listening: 'J’écoute… parlez librement, les pauses ne m’arrêtent pas', stop: 'Arrêter', stopped: 'Écoute arrêtée. Relisez le texte puis touchez « Analyser ».',

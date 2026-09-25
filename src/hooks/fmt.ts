@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { isSameDay, subDays } from 'date-fns';
 import { dateLocale, formatMoney, formatNumber, formatPercent, currencyLabel, type Lang } from '../lib/money';
 import { useLang, useSettings } from './settings';
+import { maskMoney, maskNumber } from '../lib/privacy';
 
 export type DateStyle = 'short' | 'medium' | 'long' | 'dayMonth' | 'monthYear' | 'year' | 'weekday' | 'time' | 'dateTime';
 
@@ -18,7 +19,8 @@ const OPTS: Record<DateStyle, Intl.DateTimeFormatOptions> = {
   dateTime: { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false },
 };
 
-export function makeFormatters(lang: Lang, currency: string) {
+/** `hidden`: privacy mode — money and amounts become "•••••" (percentages and dates stay). */
+export function makeFormatters(lang: Lang, currency: string, hidden = false) {
   const dtf = new Map<DateStyle, Intl.DateTimeFormat>();
   const date = (ms: number, style: DateStyle = 'medium') => {
     let f = dtf.get(style);
@@ -32,8 +34,9 @@ export function makeFormatters(lang: Lang, currency: string) {
     lang,
     currency,
     currencyLabel: currencyLabel(currency, lang),
-    money: (minor: number, opts?: { sign?: boolean; currency?: boolean }) => formatMoney(minor, lang, currency, opts),
-    num: (minor: number) => formatNumber(minor, lang),
+    money: (minor: number, opts?: { sign?: boolean; currency?: boolean }) => (hidden ? maskMoney(minor, lang, currency, opts) : formatMoney(minor, lang, currency, opts)),
+    num: (minor: number) => (hidden ? maskNumber(minor, lang) : formatNumber(minor, lang)),
+    hidden,
     pct: (v: number, digits = 0) => formatPercent(v, lang, digits),
     date,
   };
@@ -41,12 +44,14 @@ export function makeFormatters(lang: Lang, currency: string) {
 
 export type Formatters = ReturnType<typeof makeFormatters> & { dayLabel: (ms: number) => string };
 
-export function useFmt(): Formatters {
+/** `real`: never masked — exports (PDF, image) and what the user is typing. */
+export function useFmt(opts?: { real?: boolean }): Formatters {
   const lang = useLang();
-  const { currency } = useSettings();
+  const { currency, amountsHidden } = useSettings();
+  const hidden = amountsHidden && !opts?.real;
   const { t } = useTranslation();
   return useMemo(() => {
-    const f = makeFormatters(lang, currency);
+    const f = makeFormatters(lang, currency, hidden);
     const dayLabel = (ms: number) => {
       const now = new Date();
       if (isSameDay(ms, now)) return t('common.today');
@@ -54,5 +59,5 @@ export function useFmt(): Formatters {
       return f.date(ms, 'long');
     };
     return { ...f, dayLabel };
-  }, [lang, currency, t]);
+  }, [lang, currency, t, hidden]);
 }

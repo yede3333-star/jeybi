@@ -14,7 +14,6 @@ import { createTransaction, deleteTransaction, feeOf, getTransaction } from '../
 import { historyOf } from '../repo/audit';
 import { getReceipt } from '../repo/receipts';
 import { saveTemplate, templateFromTx } from '../repo/templates';
-import { formatNumber } from '../lib/money';
 import { rateToString } from '../services/currency';
 import { useImpactGuard } from '../components/Impact';
 import { deltasForDelete, deltasForTx } from '../repo/impact';
@@ -111,7 +110,7 @@ export default function TxDetail() {
             );
           })}
           {tx.origCurrency && (
-            <Field label={t('currencies.original')} value={<span className="num">{formatNumber(tx.origAmount ?? 0, fmt.lang)} {tx.origCurrency} × {rateToString(tx.rateE4 ?? 0)}</span>} />
+            <Field label={t('currencies.original')} value={<span className="num">{fmt.num(tx.origAmount ?? 0)} {tx.origCurrency} × {rateToString(tx.rateE4 ?? 0)}</span>} />
           )}
           {isDebt && <Field label={t('debts.title')} value={<Link className="text-teal-700 underline dark:text-teal-400" to="/debts">{debt?.person ?? '—'}</Link>} />}
           {tx.recurringKey && <Field label={t('recurring.title')} value={<Link className="text-teal-700 underline dark:text-teal-400" to="/recurring">{t('recurring.generated')}</Link>} />}

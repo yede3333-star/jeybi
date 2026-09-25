@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  BookA, Bug, BellRing, Coins, HandCoins, Lightbulb, Moon, PiggyBank, Repeat, Scale, Target,
+  BookA, Bug, BellRing, EyeOff, Coins, HandCoins, Lightbulb, Moon, PiggyBank, Repeat, Scale, Target,
   ChevronLeft, CloudUpload, Database, FlaskConical, FolderTree, HardDrive, Lock, RotateCcw, Trash2, Wallet, Zap,
 } from 'lucide-react';
 import { PageHeader, Segmented, Sheet } from '../components/ui';
@@ -81,6 +81,25 @@ export default function Settings() {
             <Segmented<S['fontSize']> value={s.fontSize} onChange={(v) => setSettings({ fontSize: v })}
               options={[{ value: 'sm', label: t('settings.small') }, { value: 'md', label: t('settings.medium') }, { value: 'lg', label: t('settings.large') }]} />
           </div>
+        </div>
+
+        <h2 className="section-title">{t('privacy.title')}</h2>
+        <div className="card divide-y divide-line">
+          <div className="flex min-h-14 items-center gap-3 px-4 py-2">
+            <EyeOff className="size-5 text-muted" />
+            <span className="flex-1"><span className="block font-semibold">{t('privacy.hideNow')}</span><span className="block text-xs text-muted">{t('privacy.hint')}</span></span>
+            <Toggle checked={s.amountsHidden} onChange={(v) => setSettings({ amountsHidden: v })} label={t('privacy.hideNow')} />
+          </div>
+          <div className="flex min-h-14 items-center gap-3 px-4 py-2">
+            <span className="flex-1 font-semibold">{t('privacy.hideOnOpen')}</span>
+            <Toggle checked={s.hideOnOpen} onChange={(v) => setSettings({ hideOnOpen: v })} label={t('privacy.hideOnOpen')} />
+          </div>
+          {isNative && (
+            <div className="flex min-h-14 items-center gap-3 px-4 py-2">
+              <span className="flex-1"><span className="block font-semibold">{t('privacy.secure')}</span><span className="block text-xs text-muted">{t('privacy.secureHint')}</span></span>
+              <Toggle checked={s.secureWhenHidden} onChange={(v) => setSettings({ secureWhenHidden: v })} label={t('privacy.secure')} />
+            </div>
+          )}
         </div>
 
         <h2 className="section-title">{t('settings.general')}</h2>

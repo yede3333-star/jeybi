@@ -63,6 +63,13 @@ export interface Settings {
   /** Weekly encrypted backup to Documents/Jeybi: the key derived from the user's password (never the password itself). */
   autoBackupKey: BackupKey | null;
   lastAutoBackupAt: number | null;
+  // Privacy mode (this device only)
+  /** Amounts shown as "•••••" (remembered). */
+  amountsHidden: boolean;
+  /** Start every launch hidden. */
+  hideOnOpen: boolean;
+  /** Android: while hidden, blank the app in the recent-apps screen (FLAG_SECURE). */
+  secureWhenHidden: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -101,13 +108,16 @@ export const DEFAULT_SETTINGS: Settings = {
   smartRules: {},
   autoBackupKey: null,
   lastAutoBackupAt: null,
+  amountsHidden: false,
+  hideOnOpen: false,
+  secureWhenHidden: true,
 };
 
 /** Keys that are device-specific and never travel inside a backup file. */
 export const DEVICE_ONLY_KEYS: Array<keyof Settings> = [
   'pinHash', 'pinSalt', 'pinIterations', 'pinLength', 'bioCredentialId', 'bioPublicKey', 'bioAlg',
   'pinCalibrated', 'lastWalletId', 'backupBannerSnoozedAt', 'reminderSnoozedDay', 'notificationsEnabled',
-  'autoBackupKey', 'lastAutoBackupAt',
+  'autoBackupKey', 'lastAutoBackupAt', 'amountsHidden', 'hideOnOpen', 'secureWhenHidden',
 ];
 
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);

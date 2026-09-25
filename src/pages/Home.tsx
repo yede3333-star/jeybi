@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useTranslation } from 'react-i18next';
-import { ArrowDownLeft, ArrowUpRight, ChevronLeft, CloudUpload, Plus, Zap } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ChevronLeft, CloudUpload, Eye, EyeOff, Plus, Zap } from 'lucide-react';
 import { useBalances, useHasTransactions, useNames, usePeriodTotals, useRecent, useTemplates, useWallets } from '../hooks/data';
 import { useFmt } from '../hooks/fmt';
 import { useSettings } from '../hooks/settings';
@@ -131,7 +131,13 @@ export default function Home() {
       <BackupBanner />
 
       <section className="mx-4 rounded-3xl bg-gradient-to-br from-teal-700 to-teal-900 p-5 text-white shadow-lg">
-        <p className="text-sm opacity-80">{t('home.totalBalance')}</p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm opacity-80">{t('home.totalBalance')}</p>
+          <button className="-m-2 rounded-full p-2 text-white/80 active:bg-white/10" onClick={() => void setSettings({ amountsHidden: !s.amountsHidden })}
+            aria-label={t(s.amountsHidden ? 'privacy.show' : 'privacy.hide')} aria-pressed={s.amountsHidden}>
+            {s.amountsHidden ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+          </button>
+        </div>
         <p className="num mt-1 text-4xl font-extrabold tracking-tight">{balances ? fmt.money(balances.total) : '…'}</p>
         {balances && debts && debts.open > 0 && (
           // the big number stays what is in the wallets; this line adds the debts

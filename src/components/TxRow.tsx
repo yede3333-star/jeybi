@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next';
 import { ArrowLeftRight, HandCoins, Paperclip, Repeat, SplitSquareHorizontal } from 'lucide-react';
-import { formatNumber } from '../lib/money';
 import type { Transaction } from '../data/types';
 import { IconBadge } from './Icon';
 import { useNames } from '../hooks/data';
@@ -22,7 +21,7 @@ export function TxRow({ tx, fmt, onClick, counted, showDate = false }: {
       : categoryName(main?.categoryId);
   const sub = [
     tx.type === 'transfer' ? `${walletName(tx.walletId)} ${arrow} ${walletName(tx.toWalletId)}` : walletName(tx.walletId),
-    tx.origCurrency ? `${formatNumber(tx.origAmount ?? 0, fmt.lang)} ${tx.origCurrency}` : '',
+    tx.origCurrency ? `${fmt.num(tx.origAmount ?? 0)} ${tx.origCurrency}` : '',
     tx.note,
     ...tx.tags.map((x) => `#${x}`),
   ].filter(Boolean).join(' · ');

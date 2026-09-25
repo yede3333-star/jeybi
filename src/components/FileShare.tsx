@@ -15,7 +15,7 @@ import { Sheet } from './ui';
 import { downloadBlob } from '../services/share';
 import { errorMessage } from '../services/errors';
 import { formatNumber } from '../lib/money';
-import { useLang } from '../hooks/settings';
+import { useLang, useSettings } from '../hooks/settings';
 import { isNative, native } from '../platform';
 
 export interface PreparedFile {
@@ -53,6 +53,7 @@ function canShareFile(f: File): boolean {
 export function FileShareProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const lang = useLang();
+  const settings = useSettings();
   const [state, setState] = useState<State | null>(null);
 
   const open = useCallback<Open>((prepare, onDone) => {
@@ -124,6 +125,7 @@ export function FileShareProvider({ children }: { children: ReactNode }) {
         {state?.phase === 'ready' && state.file && (
           <div className="space-y-3">
             <p className="text-center text-sm text-muted"><bdi dir="ltr" className="font-semibold text-ink">{state.file.filename}</bdi> · <bdi dir="ltr" className="num">{size} KB</bdi></p>
+            {settings.amountsHidden && <p className="rounded-lg bg-amber-100 px-3 py-2 text-xs text-amber-900 dark:bg-amber-400/15 dark:text-amber-200">{t('privacy.exportNote')}</p>}
             {state.canShare
               ? <button className="btn-primary w-full text-lg" onClick={share}><Share2 className="size-5" />{t('share.shareNow')}</button>
               : <p className="rounded-xl bg-black/5 p-3 text-sm text-muted dark:bg-white/5">{t('share.cannotShare')}</p>}

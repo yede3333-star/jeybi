@@ -94,3 +94,7 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   .animate-sheet, .animate-fade, .animate-toast { animation: none; }
 }
+
+/* Privacy mode: a long press reveals one amount (PrivacyReveal), so it must not select text. */
+html.amounts-hidden body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+html.amounts-hidden input, html.amounts-hidden textarea { -webkit-user-select: text; user-select: text; }

@@ -78,6 +78,12 @@ function onBack() {
 
 export const exitApp = () => App.exitApp();
 
+const Privacy = registerPlugin<{ setSecure(o: { secure: boolean }): Promise<void> }>('JeybiPrivacy');
+/** Privacy mode: blank in the recent-apps screen (and no screenshots) while on. */
+export function setSecureScreen(secure: boolean) {
+  void Privacy.setSecure({ secure }).catch((e) => logError(e, 'native:secure'));
+}
+
 /** Status bar / navigation bar icons readable on the app's own theme (not only the phone's). */
 export function setSystemBarsDark(dark: boolean) {
   void SystemBars.setStyle({ style: dark ? SystemBarsStyle.Dark : SystemBarsStyle.Light }).catch((e) => logError(e, 'native:bars'));
