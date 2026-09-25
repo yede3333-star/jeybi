@@ -12,7 +12,11 @@ import { Empty } from '../components/ui';
 import { useToast } from '../components/Toast';
 import { useTxEditor } from '../components/TxEditor';
 import { periodFor } from '../lib/period';
-import { applyTemplate } from '../repo/templates';
+import { applyTemplate, saveTemplate } from '../repo/templates';
+import { ValidationError } from '../repo/transactions';
+import { WalletPicker } from '../components/pickers';
+import { Sheet } from '../components/ui';
+import type { Template } from '../data/types';
 import { setSettings } from '../repo/settings';
 import { getReserved } from '../repo/goals';
 import { useDayKey } from '../hooks/day';
@@ -84,15 +88,25 @@ export default function Home() {
   const ready = !!balances && !!stats && recent !== undefined;
   useEffect(() => { if (ready) markHomeReady(); }, [ready]);
 
-  const runTemplate = async (id: string) => {
-    const tpl = templates?.find((x) => x.id === id);
+  // A template created before wallets were mandatory: choose its wallet once, then it records.
+  const [pickFor, setPickFor] = useState<Template | null>(null);
+  const runTemplate = async (id: string, tplArg?: Template) => {
+    const tpl = tplArg ?? templates?.find((x) => x.id === id);
     if (!tpl) return;
     try {
       const { undo } = await applyTemplate(tpl);
       toast({ message: t('templates.applied', { name: tpl.name, amount: fmt.money(tpl.amount) }), undo });
     } catch (e) {
+      if (e instanceof ValidationError && e.code === 'templateWallet') { setPickFor(tpl); return; }
       toast({ message: errorMessage(e, t), tone: 'error' });
     }
+  };
+  const pickTemplateWallet = async (walletId: string | null) => {
+    if (!pickFor || !walletId) return;
+    const { id, order: _o, createdAt: _c, ...rest } = pickFor;
+    const saved = await saveTemplate({ ...rest, id, walletId });
+    setPickFor(null);
+    await runTemplate(saved.id, saved);
   };
 
   const Chevron = <ChevronLeft className="size-4 ltr:rotate-180" />;
@@ -180,6 +194,10 @@ export default function Home() {
         ))}
       </div>
       {idle && <Suspense fallback={null}><HomeBottom /></Suspense>}
+      <Sheet open={!!pickFor} onClose={() => setPickFor(null)} title={t('templates.pickWalletTitle', { name: pickFor?.name ?? '' })}>
+        <p className="mb-3 text-sm text-muted">{t('templates.pickWalletHint')}</p>
+        <WalletPicker wallets={wallets ?? []} value={undefined} onChange={(id) => void pickTemplateWallet(id)} />
+      </Sheet>
     </div>
   );
 }

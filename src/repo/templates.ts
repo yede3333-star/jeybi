@@ -1,8 +1,7 @@
 import { db } from '../data/db';
 import type { ID, Template, Transaction } from '../data/types';
 import { uid } from '../lib/id';
-import { createTransaction } from './transactions';
-import { getSettings } from './settings';
+import { createTransaction, ValidationError } from './transactions';
 
 export async function listTemplates(): Promise<Template[]> {
   const all = await db.templates.toArray();
@@ -39,14 +38,12 @@ export function templateFromTx(tx: Transaction, name: string): Omit<Template, 'i
   return { name, type: tx.type, amount: tx.amount, categoryId: main.categoryId, walletId: tx.walletId, note: tx.note, tags: tx.tags };
 }
 
-/** One-tap: records the template as a new transaction now. */
+/** One-tap: records the template as a new transaction now, in the template's own wallet. */
 export async function applyTemplate(t: Template) {
-  const s = await getSettings();
-  const wallets = await db.wallets.toArray();
-  const usable = (id?: string | null) => !!id && wallets.some((w) => w.id === id && !w.archived);
-  const walletId = usable(t.walletId) ? t.walletId! : usable(s.lastWalletId) ? s.lastWalletId! : wallets.find((w) => !w.archived)?.id;
-  if (!walletId) throw new Error('noWallet');
+  const w = t.walletId ? await db.wallets.get(t.walletId) : undefined;
+  // No guessing (the last-used wallet was often wrong): a template without a usable wallet asks for one.
+  if (!w || w.archived) throw new ValidationError('templateWallet');
   return createTransaction({
-    type: t.type, amount: t.amount, walletId, categoryId: t.categoryId, date: Date.now(), note: t.note, tags: t.tags, templateId: t.id,
+    type: t.type, amount: t.amount, walletId: w.id, categoryId: t.categoryId, date: Date.now(), note: t.note, tags: t.tags, templateId: t.id,
   });
 }

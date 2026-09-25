@@ -5,7 +5,7 @@ import { Camera, Check, Minus, Pencil, PiggyBank, Plus, Trash2 } from 'lucide-re
 import type { Goal, ID } from '../data/types';
 import { PageHeader, Sheet, Empty } from '../components/ui';
 import { COLORS, ICON_NAMES, Icon, IconBadge } from '../components/Icon';
-import { WalletChips } from '../components/pickers';
+import { WalletPicker } from '../components/pickers';
 import { DateField } from '../components/DatePicker';
 import { useToast } from '../components/Toast';
 import { useNames, useWallets } from '../hooks/data';
@@ -141,7 +141,7 @@ function MoveForm({ goalId, dir, onClose }: { goalId: ID; dir: 'in' | 'out'; onC
   const fmt = useFmt();
   const toast = useToast();
   const wallets = useWallets() ?? [];
-  const [walletId, setWalletId] = useState<ID | undefined>(wallets.find((w) => !w.archived)?.id);
+  const [walletId, setWalletId] = useState<ID | undefined>(undefined);
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
   const save = async () => {
@@ -156,11 +156,11 @@ function MoveForm({ goalId, dir, onClose }: { goalId: ID; dir: 'in' | 'out'; onC
   };
   return (
     <Sheet open onClose={onClose} title={dir === 'in' ? t('goals.add') : t('goals.withdraw')}
-      footer={<div className="space-y-2">{error && <p className="text-sm text-expense">{error}</p>}<button className="btn-primary w-full" onClick={save}>{t('common.save')}</button></div>}>
+      footer={<div className="space-y-2">{error && <p className="text-sm text-expense">{error}</p>}<button className="btn-primary w-full" disabled={!walletId} onClick={save}>{t('common.save')}</button></div>}>
       <div className="space-y-4">
         <div><label className="label" htmlFor="gamount">{t('tx.amount')} ({fmt.currencyLabel})</label>
           <input id="gamount" className="input num text-lg" dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus /></div>
-        <div><span className="label">{t('tx.wallet')}</span><WalletChips wallets={wallets} value={walletId} onChange={setWalletId} /></div>
+        <div><span className="label">{t('tx.wallet')}</span><WalletPicker wallets={wallets} value={walletId} onChange={(id) => id && setWalletId(id)} /></div>
         <p className="text-xs text-muted">{dir === 'in' ? t('goals.addHint') : t('goals.withdrawHint')}</p>
       </div>
     </Sheet>

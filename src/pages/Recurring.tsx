@@ -5,7 +5,7 @@ import { Check, Plus, Repeat, Trash2, X } from 'lucide-react';
 import type { Frequency, ID, Recurring as Rule } from '../data/types';
 import { PageHeader, Segmented, Sheet, Empty, Toggle } from '../components/ui';
 import { IconBadge } from '../components/Icon';
-import { CategorySelect, WalletChips } from '../components/pickers';
+import { CategorySelect, WalletPicker } from '../components/pickers';
 import { DateField, DateTimeField } from '../components/DatePicker';
 import { useToast } from '../components/Toast';
 import { useNames, useWallets } from '../hooks/data';
@@ -18,7 +18,7 @@ export default function RecurringPage() {
   const { t } = useTranslation();
   const fmt = useFmt();
   const toast = useToast();
-  const { category, categoryName, walletName } = useNames();
+  const { category, categoryName, walletName, wallet } = useNames();
   const rules = useLiveQuery(listRecurring, []);
   const pending = useLiveQuery(listPending, []);
   const [edit, setEdit] = useState<Rule | 'new' | null>(null);
@@ -60,6 +60,7 @@ export default function RecurringPage() {
                       {t(`recurring.freq.${r.frequency}`)} · {walletName(r.walletId)} · {r.mode === 'confirm' ? t('recurring.modeConfirm') : t('recurring.modeAuto')}
                     </span>
                     {r.active && <span className="num block text-xs text-muted">{t('recurring.next')}: {fmt.date(r.nextDue, 'medium')}</span>}
+                    {(!wallet(r.walletId) || wallet(r.walletId)!.archived) && <span className="block text-xs font-semibold text-expense">{t('tx.chooseWallet')}</span>}
                   </span>
                   <span className={`num font-bold ${r.type === 'income' ? 'text-income' : 'text-expense'}`}>{fmt.money(r.amount)}</span>
                 </button>
@@ -84,7 +85,8 @@ function RuleForm({ rule, onClose }: { rule?: Rule; onClose: () => void }) {
   const [name, setName] = useState(rule?.name ?? '');
   const [amount, setAmount] = useState(rule ? minorToKeypad(rule.amount) : '');
   const [categoryId, setCategoryId] = useState<ID | ''>(rule?.categoryId ?? '');
-  const [walletId, setWalletId] = useState<ID | undefined>(rule?.walletId ?? wallets.find((w) => !w.archived)?.id);
+  // mandatory, never preselected; a rule whose wallet was archived/removed must get a new one
+  const [walletId, setWalletId] = useState<ID | undefined>(rule && wallets.some((w) => w.id === rule.walletId && !w.archived) ? rule.walletId : undefined);
   const [frequency, setFrequency] = useState<Frequency>(rule?.frequency ?? 'monthly');
   const [start, setStart] = useState<number>(rule?.startDate ?? new Date().setHours(9, 0, 0, 0));
   const [end, setEnd] = useState(rule?.endDate != null ? toDay(rule.endDate) : '');
@@ -113,7 +115,7 @@ function RuleForm({ rule, onClose }: { rule?: Rule; onClose: () => void }) {
         <div><label className="label" htmlFor="ramount">{t('tx.amount')} ({fmt.currencyLabel})</label>
           <input id="ramount" className="input num text-lg" dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
         <div><span className="label">{t('tx.category')}</span><CategorySelect kind={type} value={categoryId} onChange={setCategoryId} /></div>
-        <div><span className="label">{t('tx.wallet')}</span><WalletChips wallets={wallets} value={walletId} onChange={setWalletId} /></div>
+        <div><span className="label">{t('tx.wallet')}</span><WalletPicker wallets={wallets} value={walletId} onChange={(id) => id && setWalletId(id)} invalid={!walletId && !!rule} /></div>
         <div><span className="label">{t('recurring.frequency')}</span>
           <Segmented<Frequency> size="sm" value={frequency} onChange={setFrequency}
             options={(['daily', 'weekly', 'monthly', 'yearly'] as Frequency[]).map((f) => ({ value: f, label: t(`recurring.freq.${f}`) }))} /></div>

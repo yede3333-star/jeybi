@@ -26,6 +26,8 @@ const fr: Dict = {
     emptyTitle: 'Aucune opération', emptyHint: 'Appuyez sur + pour enregistrer votre première opération.',
   },
   tx: {
+    chooseWallet: 'Choisissez le portefeuille',
+    pickWalletAndCategory: 'Choisissez le portefeuille et la catégorie : l’opération est enregistrée dès que les deux sont choisis',
     new: 'Nouvelle opération', edit: 'Modifier l’opération', details: 'Détails de l’opération', notFound: 'Opération introuvable',
     amount: 'Montant', wallet: 'Portefeuille', fromWallet: 'Depuis', toWallet: 'Vers', category: 'Catégorie',
     fee: 'Frais de transfert (facultatif)', feeHint: 'Les frais sont enregistrés comme une dépense séparée dans « Frais ».', feeOf: 'Frais du',
@@ -37,6 +39,8 @@ const fr: Dict = {
     updated: 'Opération modifiée', deleted: 'Opération déplacée dans la corbeille', duplicate: 'Dupliquer', duplicated: 'Copie créée',
   },
   errors: {
+    templateWallet: 'Ce modèle n’a pas de portefeuille — choisissez-le.',
+    noWallet: 'Choisissez le portefeuille.',
     amount: 'Saisissez un montant supérieur à zéro.', wallet: 'Choisissez un portefeuille.', transferWallets: 'Choisissez deux portefeuilles différents.',
     fee: 'Frais de transfert invalides.', category: 'Choisissez une catégorie.', split: 'Complétez chaque part (catégorie et montant).',
     splitSum: 'La somme des parts doit être égale au montant total.', notFound: 'Opération introuvable.',
@@ -88,6 +92,8 @@ const fr: Dict = {
     others: 'Autres catégories', rest: 'Reste',
   },
   templates: {
+    pickWalletTitle: 'Portefeuille du modèle « {{name}} »',
+    pickWalletHint: 'Ce modèle date d’avant le portefeuille obligatoire. Choisissez-le une fois : l’opération est enregistrée aussitôt.',
     add: 'Nouveau modèle', edit: 'Modifier le modèle', name: 'Nom du modèle', namePlaceholder: 'ex. : Crédit téléphone',
     fromTx: 'Enregistrer comme modèle', created: 'Modèle créé', applied: '« {{name}} » enregistré ({{amount}})',
     empty: 'Aucun modèle', emptyHint: 'Les modèles sont des boutons rapides qui enregistrent une opération en un geste, ex. « Taxi 100 ».',
@@ -167,6 +173,10 @@ const fr: Dict = {
     errors: { invalidJson: 'Ce fichier n’est pas un JSON valide.', notJeybi: 'Ce fichier n’est pas une sauvegarde Jeybi.', newerFormat: 'Sauvegarde créée par une version plus récente.', wrongPassword: 'Mot de passe incorrect (ou fichier abîmé). Vos données n’ont pas changé.' },
   },
   smart: {
+    noWalletCount: '{{n}} carte(s) sans portefeuille',
+    applyToAll: 'Appliquer à tout',
+    applyToAllTitle: 'Portefeuille pour les cartes sans portefeuille ({{n}})',
+    noWalletDebt: 'Sans portefeuille (ancienne dette, sans mouvement d’argent)',
     title: 'Écrire ma journée',
     placeholder: 'Ex. : pain 50, taxi 100, crédit 200 de bankily, commission reçue 2000',
     hint: 'Écrivez comme un message WhatsApp : chaque opération avec son montant, séparées par une virgule ou « et ».',
@@ -176,6 +186,7 @@ const fr: Dict = {
     fixFirst: 'Corrigez d’abord les cartes en rouge ({{n}})', saved: '{{n}} opérations enregistrées', learned: 'Je retiendrai : {{what}}',
     editDebt: 'Modifier la dette',
     warn: {
+      noWallet: 'Choisissez le portefeuille',
       foreign: 'Converti avec le dernier taux enregistré — vérifiez-le', noRate: 'Aucun taux enregistré pour cette devise — touchez la carte pour le saisir',
       noCategory: 'Catégorie inconnue, « Autres » choisie — touchez pour changer', debt: 'Dette : vérifiez la personne et le sens',
       noPerson: 'Saisissez le nom de la personne', oldOuguiya: 'Ancienne ouguiya : montant divisé par 10', checkWallets: 'Vérifiez les deux portefeuilles', amount: 'Saisissez le montant',

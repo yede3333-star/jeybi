@@ -9,8 +9,8 @@ import type { Category, CategoryKind, DebtDirection, ID, Wallet } from '../data/
 
 export type SmartKind = 'expense' | 'income' | 'transfer' | 'debt';
 /** Shown on the card; the ones in BLOCKING must be fixed (edited) before saving. */
-export type SmartWarning = 'foreign' | 'noRate' | 'noCategory' | 'debt' | 'noPerson' | 'oldOuguiya' | 'checkWallets';
-export const BLOCKING: SmartWarning[] = ['noRate', 'noPerson'];
+export type SmartWarning = 'foreign' | 'noRate' | 'noCategory' | 'debt' | 'noPerson' | 'oldOuguiya' | 'checkWallets' | 'noWallet';
+export const BLOCKING: SmartWarning[] = ['noRate', 'noPerson', 'noWallet', 'checkWallets'];
 
 export interface SmartEntry {
   /** Stable while the text around it doesn't change (keeps the user's edits across re-parses). */
@@ -22,6 +22,7 @@ export interface SmartEntry {
   origAmount?: number;
   rateE4?: number;
   categoryId?: ID;
+  /** '' = not named in the sentence (and no learned word): the user must choose it. */
   walletId: ID;
   toWalletId?: ID;
   direction?: DebtDirection;
@@ -49,7 +50,6 @@ export interface SmartContext {
   wallets: Wallet[];
   /** Displayed names of a built-in item in every UI language (like search). */
   labels: (sysKey: string) => string[];
-  defaultWalletId: ID | null;
   baseCurrency: string;
   lastRates: Record<string, number>;
   rules: Record<string, SmartRule>;
@@ -448,17 +448,18 @@ export function parseDay(input: string, ctx: SmartContext): SmartResult {
       }
 
       // wallets
-      const def = ctx.defaultWalletId && idx.active.some((w) => w.id === ctx.defaultWalletId) ? ctx.defaultWalletId : idx.active[0]?.id ?? '';
+      // No default wallet: one not named in the sentence (or learned) is left for the user to choose.
       if (kind === 'transfer') {
         const fromM = mentions.find((m) => m.role === 'from') ?? mentions.find((m) => m.role !== 'to');
         const toM = mentions.find((m) => m.role === 'to' && m !== fromM) ?? mentions.find((m) => m !== fromM);
-        e.walletId = fromM?.id ?? (def !== toM?.id ? def : idx.active.find((w) => w.id !== toM?.id)?.id ?? '');
-        e.toWalletId = toM?.id ?? idx.active.find((w) => w.id !== e.walletId)?.id;
+        e.walletId = fromM?.id ?? '';
+        e.toWalletId = toM?.id;
         if (!fromM || !toM) warnings.push('checkWallets');
         e.walletWord = fromM?.word;
       } else {
-        e.walletId = mentions[0]?.id ?? ruleWallet ?? def;
+        e.walletId = mentions[0]?.id ?? ruleWallet ?? '';
         e.walletWord = mentions[0]?.word;
+        if (!e.walletId) warnings.push('noWallet');
       }
 
       // category / person

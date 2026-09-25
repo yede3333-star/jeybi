@@ -5,7 +5,7 @@ import { CheckCircle2, Info, Moon } from 'lucide-react';
 import type { ID } from '../data/types';
 import { PageHeader, Segmented, Sheet, Toggle } from '../components/ui';
 import { DateField } from '../components/DatePicker';
-import { WalletChips } from '../components/pickers';
+import { WalletPicker } from '../components/pickers';
 import { useToast } from '../components/Toast';
 import { useNames } from '../hooks/data';
 import { useFmt } from '../hooks/fmt';
@@ -123,7 +123,7 @@ function PaySheet({ due, onClose }: { due: number; onClose: () => void }) {
   const toast = useToast();
   const { wallets } = useNames();
   const [amount, setAmount] = useState(minorToKeypad(due));
-  const [walletId, setWalletId] = useState<ID | undefined>(wallets?.find((w) => !w.archived)?.id);
+  const [walletId, setWalletId] = useState<ID | undefined>(undefined);
   const save = async () => {
     const v = parseAmount(amount) ?? 0;
     if (!v || !walletId) return;
@@ -132,11 +132,11 @@ function PaySheet({ due, onClose }: { due: number; onClose: () => void }) {
     onClose();
   };
   return (
-    <Sheet open onClose={onClose} title={t('zakat.record')} footer={<button className="btn-primary w-full" onClick={save}>{t('common.save')}</button>}>
+    <Sheet open onClose={onClose} title={t('zakat.record')} footer={<button className="btn-primary w-full" disabled={!walletId} onClick={save}>{t('common.save')}</button>}>
       <div className="space-y-4">
         <div><label className="label" htmlFor="zamount">{t('tx.amount')} ({fmt.currencyLabel})</label>
           <input id="zamount" className="input num text-lg" dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
-        <div><span className="label">{t('tx.wallet')}</span><WalletChips wallets={wallets ?? []} value={walletId} onChange={setWalletId} /></div>
+        <div><span className="label">{t('tx.wallet')}</span><WalletPicker wallets={wallets ?? []} value={walletId} onChange={(id) => id && setWalletId(id)} /></div>
         <p className="text-xs text-muted">{t('zakat.recordHint')}</p>
       </div>
     </Sheet>

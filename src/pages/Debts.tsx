@@ -5,7 +5,7 @@ import { AlertTriangle, CheckCircle2, HandCoins, Pencil, Plus, Trash2 } from 'lu
 import type { Debt, DebtDirection, ID } from '../data/types';
 import { PageHeader, Segmented, Sheet, Empty, Toggle } from '../components/ui';
 import { DateField } from '../components/DatePicker';
-import { WalletChips } from '../components/pickers';
+import { WalletPicker } from '../components/pickers';
 import { useToast } from '../components/Toast';
 import { useWallets, useNames } from '../hooks/data';
 import { useFmt } from '../hooks/fmt';
@@ -163,7 +163,8 @@ function PaymentForm({ st, onClose }: { st: DebtStatus; onClose: () => void }) {
   const fmt = useFmt();
   const wallets = useWallets() ?? [];
   const [amount, setAmount] = useState(minorToKeypad(st.remaining));
-  const [walletId, setWalletId] = useState<ID | undefined>(st.debt.walletId ?? wallets.find((w) => !w.archived)?.id);
+  // no preselected wallet: the user chooses where the money goes/comes from
+  const [walletId, setWalletId] = useState<ID | undefined>(undefined);
   const [date, setDate] = useState(toDay(Date.now()));
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -178,14 +179,14 @@ function PaymentForm({ st, onClose }: { st: DebtStatus; onClose: () => void }) {
   };
   return (
     <Sheet open onClose={onClose} title={st.debt.direction === 'owed_to_me' ? t('debts.receivePayment') : t('debts.makePayment')}
-      footer={<div className="space-y-2">{error && <p className="text-sm text-expense">{error}</p>}<button className="btn-primary w-full" onClick={save}>{t('common.save')}</button></div>}>
+      footer={<div className="space-y-2">{error && <p className="text-sm text-expense">{error}</p>}<button className="btn-primary w-full" disabled={!walletId} onClick={save}>{t('common.save')}</button></div>}>
       <div className="space-y-4">
         <div>
           <label className="label" htmlFor="pamount">{t('tx.amount')} ({fmt.currencyLabel})</label>
           <input id="pamount" className="input num text-lg" dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
           <p className="num mt-1 text-xs text-muted">{t('debts.remaining')}: {fmt.money(st.remaining)}</p>
         </div>
-        <div><span className="label">{t('tx.wallet')}</span><WalletChips wallets={wallets} value={walletId} onChange={setWalletId} /></div>
+        <div><span className="label">{t('tx.wallet')}</span><WalletPicker wallets={wallets} value={walletId} onChange={(id) => id && setWalletId(id)} /></div>
         <div><span className="label">{t('tx.dateTime')}</span><DateField label={t('tx.dateTime')} value={date} onChange={(v) => v && setDate(v)} /></div>
         <div><label className="label" htmlFor="pnote">{t('tx.note')}</label><input id="pnote" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>
       </div>
@@ -205,7 +206,7 @@ function DebtForm({ debt, direction, onClose }: { debt?: Debt; direction: DebtDi
   const [due, setDue] = useState(debt?.dueDate != null ? toDay(debt.dueDate) : '');
   const [note, setNote] = useState(debt?.note ?? '');
   const [moveMoney, setMoveMoney] = useState(debt ? debt.walletId != null : true);
-  const [walletId, setWalletId] = useState<ID | undefined>(debt?.walletId ?? wallets.find((w) => !w.archived)?.id);
+  const [walletId, setWalletId] = useState<ID | undefined>(debt?.walletId ?? undefined);
   const [error, setError] = useState<string | null>(null);
 
   const save = async () => {
@@ -229,7 +230,7 @@ function DebtForm({ debt, direction, onClose }: { debt?: Debt; direction: DebtDi
 
   return (
     <Sheet open onClose={onClose} title={debt ? t('debts.edit') : dir === 'owed_to_me' ? t('debts.lend') : t('debts.borrow')}
-      footer={<div className="space-y-2">{error && <p className="text-sm text-expense">{error}</p>}<button className="btn-primary w-full" onClick={save}>{t('common.save')}</button></div>}>
+      footer={<div className="space-y-2">{error && <p className="text-sm text-expense">{error}</p>}<button className="btn-primary w-full" disabled={moveMoney && !walletId} onClick={save}>{t('common.save')}</button></div>}>
       <div className="space-y-4">
         <Segmented<DebtDirection> value={dir} onChange={setDir}
           options={[{ value: 'owed_to_me', label: t('debts.owesMeShort') }, { value: 'i_owe', label: t('debts.iOweShort') }]} />
@@ -250,7 +251,7 @@ function DebtForm({ debt, direction, onClose }: { debt?: Debt; direction: DebtDi
             <span className="flex-1 text-sm font-semibold">{dir === 'owed_to_me' ? t('debts.moveOut') : t('debts.moveIn')}</span>
             <Toggle checked={moveMoney} onChange={setMoveMoney} />
           </div>
-          {moveMoney ? <div className="mt-2"><WalletChips wallets={wallets} value={walletId} onChange={setWalletId} /></div>
+          {moveMoney ? <div className="mt-2"><WalletPicker wallets={wallets} value={walletId} onChange={(id) => id && setWalletId(id)} /></div>
             : <p className="mt-1 text-xs text-muted">{t('debts.noWalletHint')}</p>}
         </div>
         <div>

@@ -3,27 +3,42 @@ import { useTranslation } from 'react-i18next';
 import { ChevronDown } from 'lucide-react';
 import type { Category, CategoryKind, ID, Wallet } from '../data/types';
 import { IconBadge } from './Icon';
-import { useNames } from '../hooks/data';
+import { useBalances, useNames } from '../hooks/data';
+import { useFmt } from '../hooks/fmt';
 
-/** Horizontal wallet chips. */
-export function WalletChips({ wallets, value, onChange, exclude }: {
-  wallets: Wallet[]; value?: ID; onChange: (id: ID) => void; exclude?: ID;
+/**
+ * Wallet choice: large buttons with each wallet's balance, nothing preselected for a new entry
+ * (choosing is mandatory). `none`: an extra button for "no wallet" (an old debt).
+ */
+export function WalletPicker({ wallets, value, onChange, exclude, none, invalid = false }: {
+  wallets: Wallet[]; value?: ID | null; onChange: (id: ID | null) => void; exclude?: ID;
+  none?: string; invalid?: boolean;
 }) {
   const { nameOf } = useNames();
+  const balances = useBalances();
+  const fmt = useFmt();
+  const list = wallets.filter((w) => !w.archived && w.id !== exclude);
+  const btn = (on: boolean) => `flex min-h-14 items-center gap-2 rounded-xl px-3 py-2 text-start ring-1 transition active:scale-[0.98] ${
+    on ? 'bg-teal-600/10 ring-2 ring-teal-600 dark:ring-teal-400' : 'bg-surface ring-line'}`;
   return (
-    <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-      {wallets.filter((w) => !w.archived && w.id !== exclude).map((w) => (
-        <button
-          key={w.id}
-          type="button"
-          onClick={() => onChange(w.id)}
-          className={`chip shrink-0 ${w.id === value ? 'chip-on' : ''}`}
-          aria-pressed={w.id === value}
-        >
-          <span className="size-2.5 rounded-full" style={{ backgroundColor: w.color }} />
-          {nameOf(w)}
+    <div className={`grid grid-cols-2 gap-2 rounded-2xl ${invalid ? 'p-1 ring-2 ring-amber-500/70' : ''}`} role="radiogroup">
+      {list.map((w) => {
+        const bal = balances?.byWallet.get(w.id) ?? 0;
+        return (
+          <button key={w.id} type="button" role="radio" aria-checked={w.id === value} onClick={() => onChange(w.id)} className={btn(w.id === value)}>
+            <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: w.color }} />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-semibold">{nameOf(w)}</span>
+              <span className={`num block text-xs ${bal < 0 ? 'text-expense' : 'text-muted'}`}>{fmt.money(bal)}</span>
+            </span>
+          </button>
+        );
+      })}
+      {none && (
+        <button type="button" role="radio" aria-checked={value === null} onClick={() => onChange(null)} className={`${btn(value === null)} col-span-2 text-sm`}>
+          {none}
         </button>
-      ))}
+      )}
     </div>
   );
 }

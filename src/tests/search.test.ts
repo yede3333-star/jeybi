@@ -153,7 +153,8 @@ describe('search against the real database (built-in categories)', () => {
   });
   it('transactions created from a template are found by the template name', async () => {
     const food = (await db.categories.toArray()).find((c) => c.sysKey === 'food')!;
-    const tpl = await saveTemplate({ name: 'تاكسي المطار', type: 'expense', amount: 100_00, categoryId: food.id, note: '', tags: [] });
+    const wallet = (await db.wallets.toArray())[0];
+    const tpl = await saveTemplate({ name: 'تاكسي المطار', type: 'expense', amount: 100_00, categoryId: food.id, walletId: wallet.id, note: '', tags: [] });
     await applyTemplate(tpl);
     const n = buildSearchNames(await db.categories.toArray(), await db.wallets.toArray(), await listTemplates(), labels);
     expect(filterTransactions(await listActive(), { text: 'المطار', names: n })).toHaveLength(1);

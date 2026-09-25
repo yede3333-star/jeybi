@@ -5,7 +5,7 @@ import { Archive, ArchiveRestore, ArrowDown, ArrowUp, Check, Plus, Trash2 } from
 import type { Category, CategoryKind, ID, Template, Wallet } from '../data/types';
 import { PageHeader, Segmented, Sheet, Empty } from '../components/ui';
 import { COLORS, ICON_NAMES, Icon, IconBadge } from '../components/Icon';
-import { CategorySelect } from '../components/pickers';
+import { CategorySelect, WalletPicker } from '../components/pickers';
 import { useToast } from '../components/Toast';
 import { useBalances, useNames, useTemplates } from '../hooks/data';
 import { useFmt } from '../hooks/fmt';
@@ -239,11 +239,17 @@ function CategoryForm({ category, kind, onClose }: { category: Category | null; 
 
 // ---------------- Templates ----------------
 
+/** A template records into its own wallet; older templates may have none (or an archived one). */
+export function templateWalletOk(tpl: Template, wallet: (id?: ID) => Wallet | undefined): boolean {
+  const w = wallet(tpl.walletId);
+  return !!w && !w.archived;
+}
+
 export function TemplatesPage() {
   const { t } = useTranslation();
   const fmt = useFmt();
   const templates = useTemplates();
-  const { category, categoryName } = useNames();
+  const { category, categoryName, wallet } = useNames();
   const [params, setParams] = useSearchParams();
   const [edit, setEdit] = useState<Template | 'new' | null>(null);
 
@@ -276,6 +282,7 @@ export function TemplatesPage() {
                   <span className="flex-1">
                     <span className="block font-semibold">{tpl.name}</span>
                     <span className="block text-sm text-muted">{categoryName(tpl.categoryId)}</span>
+                    {!templateWalletOk(tpl, wallet) && <span className="block text-xs font-semibold text-expense">{t('tx.chooseWallet')}</span>}
                   </span>
                   <span className={`num font-bold ${tpl.type === 'income' ? 'text-income' : 'text-expense'}`}>{fmt.money(tpl.amount)}</span>
                 </button>
@@ -296,15 +303,16 @@ export function TemplatesPage() {
 function TemplateForm({ tpl, onClose }: { tpl: Template | null; onClose: () => void }) {
   const { t } = useTranslation();
   const fmt = useFmt();
-  const { wallets, nameOf, categoryName } = useNames();
+  const { wallets, categoryName, wallet } = useNames();
   const [type, setType] = useState<CategoryKind>(tpl?.type ?? 'expense');
   const [name, setName] = useState(tpl?.name ?? '');
   const [amount, setAmount] = useState(tpl ? minorToKeypad(tpl.amount) : '');
   const [categoryId, setCategoryId] = useState<ID | ''>(tpl?.categoryId ?? '');
-  const [walletId, setWalletId] = useState<ID | ''>(tpl?.walletId ?? '');
+  // mandatory: a template always records into its own wallet (one tap, no guessing)
+  const [walletId, setWalletId] = useState<ID | ''>(tpl && templateWalletOk(tpl, wallet) ? tpl.walletId! : '');
   const [note, setNote] = useState(tpl?.note ?? '');
   const minor = parseAmount(amount) ?? 0;
-  const valid = minor > 0 && !!categoryId;
+  const valid = minor > 0 && !!categoryId && !!walletId;
 
   const save = async () => {
     if (!valid) return;
@@ -331,11 +339,8 @@ function TemplateForm({ tpl, onClose }: { tpl: Template | null; onClose: () => v
           <CategorySelect kind={type} value={categoryId} onChange={setCategoryId} />
         </div>
         <div>
-          <label className="label" htmlFor="twallet">{t('tx.wallet')}</label>
-          <select id="twallet" className="input" value={walletId} onChange={(e) => setWalletId(e.target.value)}>
-            <option value="">{t('templates.lastWallet')}</option>
-            {wallets?.filter((w) => !w.archived).map((w) => <option key={w.id} value={w.id}>{nameOf(w)}</option>)}
-          </select>
+          <span className="label">{t('tx.wallet')}{!walletId && <span className="text-amber-700 dark:text-amber-300"> — {t('tx.chooseWallet')}</span>}</span>
+          <WalletPicker wallets={wallets ?? []} value={walletId || undefined} onChange={(id) => id && setWalletId(id)} invalid={!walletId && !!tpl} />
         </div>
         <div>
           <label className="label" htmlFor="tnote">{t('tx.note')}</label>

@@ -127,11 +127,18 @@ describe('categories', () => {
 });
 
 describe('templates', () => {
-  it('applies a template with the last used wallet', async () => {
-    await createTransaction({ type: 'expense', amount: 100_00, walletId: bankily, categoryId: food, date: now });
-    const tpl = await saveTemplate({ name: 'رصيد هاتف', type: 'expense', amount: 200_00, categoryId: food, note: '', tags: [] });
+  it("records into the template's own wallet", async () => {
+    const tpl = await saveTemplate({ name: 'رصيد هاتف', type: 'expense', amount: 200_00, categoryId: food, walletId: bankily, note: '', tags: [] });
     const { tx } = await applyTemplate(tpl);
     expect(tx).toMatchObject({ amount: 200_00, walletId: bankily });
+  });
+  it('never guesses a wallet: an old template without one (or with an archived one) asks for it', async () => {
+    await createTransaction({ type: 'expense', amount: 100_00, walletId: bankily, categoryId: food, date: now });
+    const old = await saveTemplate({ name: 'قديم', type: 'expense', amount: 200_00, categoryId: food, note: '', tags: [] });
+    await expect(applyTemplate(old)).rejects.toMatchObject({ code: 'templateWallet' });
+    await db.wallets.update(bankily, { archived: true });
+    const archived = await saveTemplate({ name: 'مؤرشف', type: 'expense', amount: 200_00, categoryId: food, walletId: bankily, note: '', tags: [] });
+    await expect(applyTemplate(archived)).rejects.toMatchObject({ code: 'templateWallet' });
   });
 });
 

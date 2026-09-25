@@ -7,7 +7,7 @@ import type { ID, Split, Transaction, TxType } from '../data/types';
 export type EditType = Exclude<TxType, 'debt'>;
 import { Sheet, Segmented } from './ui';
 import { AmountPad, formatBuffer } from './AmountPad';
-import { CategoryGrid, CategorySelect, WalletChips } from './pickers';
+import { CategoryGrid, CategorySelect, WalletPicker } from './pickers';
 import { TagInput } from './TagInput';
 import { DateTimeField } from './DatePicker';
 import { useToast } from './Toast';
@@ -91,15 +91,10 @@ export default function TxSheet({ initialType, tx: realTx, onClose, draft, onDra
   };
   const active = wallets.filter((w) => !w.archived);
 
-  // default wallets: last used, then first active
-  useEffect(() => {
-    if (walletId || !active.length) return;
-    const last = active.find((w) => w.id === settings.lastWalletId);
-    setWalletId((last ?? active[0]).id);
-  }, [active, walletId, settings.lastWalletId]);
-  useEffect(() => {
-    if (type === 'transfer' && (!toWalletId || toWalletId === walletId)) setToWalletId(active.find((w) => w.id !== walletId)?.id);
-  }, [type, walletId, toWalletId, active]);
+  // No wallet is preselected for a new entry: choosing it is mandatory (a wrong default was easy to
+  // miss). A wallet that no longer exists or is archived counts as not chosen.
+  const walletOk = !!walletId && active.some((w) => w.id === walletId);
+  const walletsOk = walletOk && (type !== 'transfer' || (!!toWalletId && toWalletId !== walletId && active.some((w) => w.id === toWalletId)));
 
   // existing transfer fee and receipt preview
   useEffect(() => {
@@ -117,10 +112,12 @@ export default function TxSheet({ initialType, tx: realTx, onClose, draft, onDra
 
   const splitSum = splits.reduce((a, s) => a + (parseAmount(s.amount) ?? 0), 0);
 
-  const save = useCallback(async (pickedCategory?: ID) => {
+  const save = useCallback(async (pickedCategory?: ID, pickedWallet?: ID) => {
     setError(null);
+    const wid = pickedWallet ?? walletId;
+    if (!wid || !active.some((w) => w.id === wid)) { setError(t('tx.chooseWallet')); return; }
     const input: TxInput = {
-      type, amount, walletId: walletId ?? '', date, note, tags,
+      type, amount, walletId: wid, date, note, tags,
       receiptId: receiptId ?? null,
     };
     if (foreign) {
@@ -165,12 +162,19 @@ export default function TxSheet({ initialType, tx: realTx, onClose, draft, onDra
     } finally {
       setBusy(false);
     }
-  }, [type, amount, walletId, toWalletId, date, note, tags, receiptId, receiptBlob, fee, splitMode, splits, categoryId, realTx, onDraft, toast, t, fmt, onClose, foreign, rateE4, currency, keyed, settings.lastRates, categoryName]);
+  }, [type, amount, walletId, toWalletId, date, note, tags, receiptId, receiptBlob, fee, splitMode, splits, categoryId, realTx, onDraft, toast, t, fmt, onClose, foreign, rateE4, currency, keyed, settings.lastRates, categoryName, active]);
 
+  // Quick entry: amount → wallet + category (either order) → saved on the second tap.
+  const quick = !editing && !more;
   const onPickCategory = (id: ID) => {
     setCategoryId(id);
-    // Quick entry: amount → category → saved.
-    if (!editing && !more && amount > 0) void save(id);
+    if (quick && amount > 0 && walletOk) void save(id);
+  };
+  const onPickWallet = (id: ID | null) => {
+    if (!id) return;
+    setWalletId(id);
+    setError(null);
+    if (quick && type !== 'transfer' && amount > 0 && categoryId && !splitMode) void save(categoryId, id);
   };
 
   const typeTabs = (
@@ -222,7 +226,6 @@ export default function TxSheet({ initialType, tx: realTx, onClose, draft, onDra
         <div className="space-y-3">
           {typeTabs}
           {amountDisplay}
-          <WalletChips wallets={wallets} value={walletId} onChange={setWalletId} />
           <AmountPad value={buf} onChange={setBuf} onEnter={() => amount > 0 && setStep('details')} />
         </div>
       </Sheet>
@@ -237,11 +240,11 @@ export default function TxSheet({ initialType, tx: realTx, onClose, draft, onDra
         <div className="space-y-2">
           {error && <p className="text-sm font-medium text-expense" role="alert">{error}</p>}
           {!quickHint && (
-            <button className="btn-primary w-full text-lg" disabled={busy || amount <= 0} onClick={() => save()}>
+            <button className="btn-primary w-full text-lg" disabled={busy || amount <= 0 || !walletsOk} onClick={() => save()}>
               {t('common.save')}
             </button>
           )}
-          {quickHint && <p className="text-center text-sm text-muted">{t('tx.tapCategoryToSave')}</p>}
+          {quickHint && <p className="text-center text-sm text-muted">{t('tx.pickWalletAndCategory')}</p>}
         </div>
       }>
       <div className="space-y-4">
@@ -249,15 +252,15 @@ export default function TxSheet({ initialType, tx: realTx, onClose, draft, onDra
         {amountDisplay}
 
         <div>
-          <span className="label">{type === 'transfer' ? t('tx.fromWallet') : t('tx.wallet')}</span>
-          <WalletChips wallets={wallets} value={walletId} onChange={setWalletId} />
+          <span className="label">{type === 'transfer' ? t('tx.fromWallet') : t('tx.wallet')}{!walletOk && <span className="text-amber-700 dark:text-amber-300"> — {t('tx.chooseWallet')}</span>}</span>
+          <WalletPicker wallets={wallets} value={walletOk ? walletId : undefined} onChange={onPickWallet} invalid={!walletOk && !!error} />
         </div>
 
         {type === 'transfer' ? (
           <>
             <div>
               <span className="label">{t('tx.toWallet')}</span>
-              <WalletChips wallets={wallets} value={toWalletId} onChange={setToWalletId} exclude={walletId} />
+              <WalletPicker wallets={wallets} value={toWalletId} onChange={(id) => id && setToWalletId(id)} exclude={walletId} />
             </div>
             <div>
               <label className="label" htmlFor="fee">{t('tx.fee')}</label>

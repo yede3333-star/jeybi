@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeftRight, CheckCheck, HandCoins, Loader2, Mic, Pencil, Plus, Sparkles, Trash2, TriangleAlert, TrendingDown, TrendingUp } from 'lucide-react';
 import { PageHeader, Segmented, Sheet } from '../components/ui';
-import { WalletChips } from '../components/pickers';
+import { WalletPicker } from '../components/pickers';
 import { useToast } from '../components/Toast';
 import { useNames } from '../hooks/data';
 import { useFmt } from '../hooks/fmt';
@@ -38,7 +38,7 @@ type Override = { draft: SmartDraft } | { deleted: true };
 
 function toDraft(e: Parsed): SmartDraft {
   if (e.kind === 'debt') {
-    return { kind: 'debt', input: { direction: e.direction!, person: e.person ?? '', amount: e.amount, date: e.date, dueDate: null, note: e.text, walletId: e.walletId || null } };
+    return { kind: 'debt', input: { direction: e.direction!, person: e.person ?? '', amount: e.amount, date: e.date, dueDate: null, note: e.text, walletId: e.walletId } };
   }
   const input: TxInput = { type: e.kind, amount: e.amount, walletId: e.walletId, date: e.date, note: e.text };
   if (e.kind === 'transfer') input.toWalletId = e.toWalletId;
@@ -49,8 +49,13 @@ function toDraft(e: Parsed): SmartDraft {
 
 /** Why a card cannot be saved yet (null = fine). */
 function problem(d: SmartDraft): SmartWarning | 'amount' | null {
-  if (d.kind === 'debt') return !d.input.person.trim() ? 'noPerson' : d.input.amount > 0 ? null : 'amount';
+  if (d.kind === 'debt') {
+    if (!d.input.person.trim()) return 'noPerson';
+    if (d.input.walletId === '') return 'noWallet';
+    return d.input.amount > 0 ? null : 'amount';
+  }
   const i = d.input;
+  if (!i.walletId) return i.type === 'transfer' ? 'checkWallets' : 'noWallet';
   if (i.origCurrency && !i.rateE4) return 'noRate';
   if (!(i.amount > 0)) return 'amount';
   if (i.type === 'transfer' && (!i.toWalletId || i.toWalletId === i.walletId)) return 'checkWallets';
@@ -92,7 +97,7 @@ export default function SmartEntry() {
     const ar = i18n.getFixedT('ar'), fr = i18n.getFixedT('fr');
     return parseDay(deferred, {
       categories: categories ?? [], wallets: wallets ?? [], labels: (k) => [ar(`sys.${k}`), fr(`sys.${k}`)],
-      defaultWalletId: s.lastWalletId, baseCurrency: s.currency, lastRates: s.lastRates, rules: s.smartRules, now: Date.now(),
+      baseCurrency: s.currency, lastRates: s.lastRates, rules: s.smartRules, now: Date.now(),
     });
     // `day`: a new day re-reads "today" / "yesterday"
   }, [deferred, ready, categories, wallets, s.lastWalletId, s.currency, s.lastRates, s.smartRules, day]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -107,7 +112,20 @@ export default function SmartEntry() {
     return [...out, ...manual];
   }, [result, overrides, manual]);
   const unknown = result.unknown.filter((u) => !handled.has(`${u.start}:${u.text}`));
-  const invalid = cards.filter((c) => problem(c.draft) || c.warnings.some((w) => BLOCKING.includes(w)));
+  const invalid = cards.filter((c) => problem(c.draft));
+  const withoutWallet = cards.filter((c) => problem(c.draft) === 'noWallet');
+  const [pickAll, setPickAll] = useState(false);
+  const applyWalletToAll = (walletId: ID | null) => {
+    if (!walletId) return;
+    const set = (c: Card): SmartDraft => (c.draft.kind === 'tx' ? { kind: 'tx', input: { ...c.draft.input, walletId } } : { kind: 'debt', input: { ...c.draft.input, walletId } });
+    setOverrides((o) => {
+      const next = { ...o };
+      for (const c of withoutWallet) if (!c.key.startsWith('m:')) next[c.key] = { draft: set(c) };
+      return next;
+    });
+    setManual((m) => m.map((c) => (withoutWallet.some((x) => x.key === c.key) ? { ...c, draft: set(c) } : c)));
+    setPickAll(false);
+  };
 
   // ---- edits (and learning from them)
   const applyEdit = useCallback((card: Card, draft: SmartDraft, manualNew?: boolean) => {
@@ -122,7 +140,8 @@ export default function SmartEntry() {
     const learned: string[] = [];
     if (cat && cat !== e.categoryId && e.keyword) { void learnRule(e.keyword, { categoryId: cat }); learned.push(`${e.keyword} ← ${categoryName(cat)}`); }
     const wordForWallet = e.walletWord ?? e.keyword;
-    if (draft.input.walletId !== e.walletId && wordForWallet) { void learnRule(wordForWallet, { walletId: draft.input.walletId }); learned.push(`${wordForWallet} ← ${walletName(draft.input.walletId)}`); }
+    // only a real correction (a wallet was read and the user changed it) teaches a word → wallet
+    if (e.walletId && draft.input.walletId !== e.walletId && wordForWallet) { void learnRule(wordForWallet, { walletId: draft.input.walletId }); learned.push(`${wordForWallet} ← ${walletName(draft.input.walletId)}`); }
     if (learned.length) toast({ message: t('smart.learned', { what: learned.join('، ') }) });
   }, [categoryName, walletName, t, toast]);
 
@@ -134,7 +153,7 @@ export default function SmartEntry() {
   const addManual = (u: { text: string; start: number }) => {
     const card: Card = {
       key: `m:${Date.now()}`, text: u.text, warnings: [],
-      draft: { kind: 'tx', input: { type: 'expense', amount: 0, walletId: s.lastWalletId ?? wallets?.find((w) => !w.archived)?.id ?? '', date: Date.now(), note: u.text } },
+      draft: { kind: 'tx', input: { type: 'expense', amount: 0, walletId: '', date: Date.now(), note: u.text } },
     };
     setHandled((h) => new Set(h).add(`${u.start}:${u.text}`));
     setEditing({ card, manualNew: true });
@@ -221,6 +240,13 @@ export default function SmartEntry() {
         {cards.length > 0 && (
           <div className="space-y-2">
             <h2 className="section-title pt-0">{t('smart.entries', { n: cards.length })}</h2>
+            {withoutWallet.length > 0 && (
+              <div className="flex items-center gap-2 rounded-xl bg-amber-100 px-3 py-2 text-sm text-amber-900 dark:bg-amber-400/15 dark:text-amber-200">
+                <TriangleAlert className="size-4 shrink-0" />
+                <span className="flex-1 font-semibold">{t('smart.noWalletCount', { n: withoutWallet.length })}</span>
+                <button type="button" className="rounded-lg bg-amber-900 px-3 py-1.5 font-semibold text-white dark:bg-amber-300 dark:text-amber-950" onClick={() => setPickAll(true)}>{t('smart.applyToAll')}</button>
+              </div>
+            )}
             {cards.map((c) => (
               <CardView key={c.key} card={c} onEdit={() => setEditing({ card: c })} onDelete={() => remove(c)} />
             ))}
@@ -238,6 +264,10 @@ export default function SmartEntry() {
           </button>
         </div>
       )}
+
+      <Sheet open={pickAll} onClose={() => setPickAll(false)} title={t('smart.applyToAllTitle', { n: withoutWallet.length })}>
+        <WalletPicker wallets={wallets ?? []} value={undefined} onChange={applyWalletToAll} />
+      </Sheet>
 
       {editing?.card.draft.kind === 'tx' && (
         <Suspense fallback={null}>
@@ -297,18 +327,18 @@ function CardView({ card, onEdit, onDelete }: { card: Card; onEdit: () => void; 
     icon = <HandCoins className="size-5" />;
     color = 'text-transfer';
     title = t(d.input.direction === 'owed_to_me' ? 'debts.label.lentTo' : 'debts.label.borrowedFrom', { person: d.input.person || '…' });
-    sub = `${t('types.debt')} · ${d.input.walletId ? walletName(d.input.walletId) : '—'}`;
+    sub = `${t('types.debt')} · ${d.input.walletId ? walletName(d.input.walletId) : d.input.walletId === null ? t('smart.noWalletDebt') : t('tx.chooseWallet')}`;
   } else {
     const i = d.input;
     icon = i.type === 'income' ? <TrendingUp className="size-5" /> : i.type === 'transfer' ? <ArrowLeftRight className="size-5" /> : <TrendingDown className="size-5" />;
     color = i.type === 'income' ? 'text-income' : i.type === 'transfer' ? 'text-transfer' : 'text-expense';
-    title = i.type === 'transfer' ? `${walletName(i.walletId)} ← ${walletName(i.toWalletId)}`
+    title = i.type === 'transfer' ? `${i.walletId ? walletName(i.walletId) : '?'} ← ${i.toWalletId ? walletName(i.toWalletId) : '?'}`
       : i.splits?.length ? i.splits.map((x) => categoryName(x.categoryId)).join(' + ') : categoryName(i.categoryId);
-    sub = `${t(`types.${i.type}`)}${i.type === 'transfer' ? '' : ` · ${walletName(i.walletId)}`}`;
+    sub = `${t(`types.${i.type}`)}${i.type === 'transfer' ? '' : ` · ${i.walletId ? walletName(i.walletId) : t('tx.chooseWallet')}`}`;
   }
   const amount = d.input.amount;
   const orig = d.kind === 'tx' && d.input.origCurrency ? `${minorToKeypad(d.input.origAmount ?? 0)} ${d.input.origCurrency}` : null;
-  const warnings = [...card.warnings.filter((w) => w !== 'noRate' && w !== 'noPerson' && w !== 'checkWallets'), ...(issue ? [issue] : [])];
+  const warnings = [...card.warnings.filter((w) => !BLOCKING.includes(w)), ...(issue ? [issue] : [])];
   return (
     <div className={`card flex gap-3 p-3 ${issue ? 'ring-2 ring-red-500/50' : ''}`}>
       <button type="button" className="flex min-w-0 flex-1 gap-3 text-start" onClick={onEdit}>
@@ -342,11 +372,12 @@ function DebtDraftSheet({ value, onSave, onClose }: { value: DebtInput; onSave: 
   const [direction, setDirection] = useState<DebtDirection>(value.direction);
   const [person, setPerson] = useState(value.person);
   const [amount, setAmount] = useState(minorToKeypad(value.amount));
-  const [walletId, setWalletId] = useState<ID | undefined>(value.walletId ?? undefined);
+  // '' = not chosen yet; null = recorded without moving money (an old debt): both explicit choices
+  const [walletId, setWalletId] = useState<ID | null | undefined>(value.walletId === '' ? undefined : value.walletId);
   const minor = parseAmount(amount) ?? 0;
   return (
     <Sheet open onClose={onClose} title={t('smart.editDebt')}
-      footer={<button className="btn-primary w-full" disabled={!person.trim() || minor <= 0} onClick={() => onSave({ ...value, direction, person: person.trim(), amount: minor, walletId: walletId ?? null })}>{t('common.save')}</button>}>
+      footer={<button className="btn-primary w-full" disabled={!person.trim() || minor <= 0 || walletId === undefined} onClick={() => onSave({ ...value, direction, person: person.trim(), amount: minor, walletId: walletId ?? null })}>{t('common.save')}</button>}>
       <div className="space-y-4">
         <Segmented<DebtDirection> value={direction} onChange={setDirection}
           options={[{ value: 'owed_to_me', label: t('debts.lend') }, { value: 'i_owe', label: t('debts.borrow') }]} />
@@ -360,7 +391,7 @@ function DebtDraftSheet({ value, onSave, onClose }: { value: DebtInput; onSave: 
         </div>
         <div>
           <span className="label">{t('tx.wallet')}</span>
-          <WalletChips wallets={wallets ?? []} value={walletId} onChange={setWalletId} />
+          <WalletPicker wallets={wallets ?? []} value={walletId} onChange={setWalletId} none={t('smart.noWalletDebt')} />
         </div>
       </div>
     </Sheet>
